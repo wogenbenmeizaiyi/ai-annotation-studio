@@ -1,0 +1,228 @@
+stages:
+  - dependencies
+  - build
+  - publish
+
+variables:
+  DOCKER_BUILDKIT: '1'
+  GIT_DEPTH: '0'
+
+.docker-job:
+  before_script:
+    - test -n "$CONTAINER_REGISTRY"
+    - test -n "$CONTAINER_REGISTRY_NAMESPACE"
+    - test -n "$CONTAINER_REGISTRY_USERNAME"
+    - test -n "$CONTAINER_REGISTRY_PASSWORD"
+    - printf '%s' "$CONTAINER_REGISTRY_PASSWORD" | docker login "$CONTAINER_REGISTRY" --username "$CONTAINER_REGISTRY_USERNAME" --password-stdin
+    - export IMAGE_PREFIX="$CONTAINER_REGISTRY/$CONTAINER_REGISTRY_NAMESPACE"
+  after_script:
+    - docker logout "$CONTAINER_REGISTRY" || true
+
+build:annotation-deps:
+  extends: .docker-job
+  stage: dependencies
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "deploy"'
+      changes:
+        paths:
+          - services/annotation/**/*
+          - .gitlab-ci.yml
+    - when: never
+  script:
+    - cd services/annotation
+    - DEPS_HASH="$(sha256sum requirements.txt Dockerfile.deps assets/fonts/Arial.Unicode.ttf | sha256sum | cut -d' ' -f1)"
+    - DEPS_IMAGE="$IMAGE_PREFIX/annotation-deps:$DEPS_HASH"
+    - |
+      if docker manifest inspect "$DEPS_IMAGE" >/dev/null 2>&1; then
+        echo "Reusing $DEPS_IMAGE"
+      else
+        docker build --pull -f Dockerfile.deps -t "$DEPS_IMAGE" .
+        docker push "$DEPS_IMAGE"
+      fi
+
+build:recognition-deps:
+  extends: .docker-job
+  stage: dependencies
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "deploy"'
+      changes:
+        paths:
+          - services/recognition/**/*
+          - .gitlab-ci.yml
+    - when: never
+  script:
+    - cd services/recognition
+    - DEPS_HASH="$(sha256sum requirements.txt Dockerfile.deps | sha256sum | cut -d' ' -f1)"
+    - DEPS_IMAGE="$IMAGE_PREFIX/recognition-deps:$DEPS_HASH"
+    - |
+      if docker manifest inspect "$DEPS_IMAGE" >/dev/null 2>&1; then
+        echo "Reusing $DEPS_IMAGE"
+      else
+        docker build --pull -f Dockerfile.deps -t "$DEPS_IMAGE" .
+        docker push "$DEPS_IMAGE"
+      fi
+
+build:web:
+  extends: .docker-job
+  stage: build
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "deploy"'
+      changes:
+        paths:
+          - apps/web/**/*
+          - .gitlab-ci.yml
+    - when: never
+  script:
+    - IMAGE="$IMAGE_PREFIX/web:$CI_COMMIT_SHA"
+    - docker build --pull --label "org.opencontainers.image.revision=$CI_COMMIT_SHA" --label "org.opencontainers.image.source=$CI_PROJECT_URL" -f apps/web/deploy/Dockerfile -t "$IMAGE" apps/web
+    - docker push "$IMAGE"
+
+build:annotation:
+  extends: .docker-job
+  stage: build
+  needs:
+    - build:annotation-deps
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "deploy"'
+      changes:
+        paths:
+          - services/annotation/**/*
+          - .gitlab-ci.yml
+    - when: never
+  script:
+    - cd services/annotation
+    - DEPS_HASH="$(sha256sum requirements.txt Dockerfile.deps assets/fonts/Arial.Unicode.ttf | sha256sum | cut -d' ' -f1)"
+    - BASE_IMAGE="$IMAGE_PREFIX/annotation-deps:$DEPS_HASH"
+    - IMAGE="$IMAGE_PREFIX/annotation:$CI_COMMIT_SHA"
+    - docker build --pull --build-arg "BASE_IMAGE=$BASE_IMAGE" --label "org.opencontainers.image.revision=$CI_COMMIT_SHA" --label "org.opencontainers.image.source=$CI_PROJECT_URL" -t "$IMAGE" .
+    - docker push "$IMAGE"
+
+build:recognition-api:
+  extends: .docker-job
+  stage: build
+  needs:
+    - build:recognition-deps
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "deploy"'
+      changes:
+        paths:
+          - services/recognition/api/**/*
+          - services/recognition/core/**/*
+          - services/recognition/engine/**/*
+          - services/recognition/alembic/**/*
+          - services/recognition/alembic.ini
+          - services/recognition/requirements.txt
+          - services/recognition/Dockerfile.deps
+          - services/recognition/Dockerfile.api
+          - .gitlab-ci.yml
+    - when: never
+  script:
+    - cd services/recognition
+    - DEPS_HASH="$(sha256sum requirements.txt Dockerfile.deps | sha256sum | cut -d' ' -f1)"
+    - BASE_IMAGE="$IMAGE_PREFIX/recognition-deps:$DEPS_HASH"
+    - IMAGE="$IMAGE_PREFIX/recognition-api:$CI_COMMIT_SHA"
+    - docker build --pull --build-arg "BASE_IMAGE=$BASE_IMAGE" --label "org.opencontainers.image.revision=$CI_COMMIT_SHA" --label "org.opencontainers.image.source=$CI_PROJECT_URL" -f Dockerfile.api -t "$IMAGE" .
+    - docker push "$IMAGE"
+
+build:recognition-worker:
+  extends: .docker-job
+  stage: build
+  needs:
+    - build:recognition-deps
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "deploy"'
+      changes:
+        paths:
+          - services/recognition/worker/**/*
+          - services/recognition/core/**/*
+          - services/recognition/engine/**/*
+          - services/recognition/requirements.txt
+          - services/recognition/Dockerfile.deps
+          - services/recognition/Dockerfile.worker
+          - .gitlab-ci.yml
+    - when: never
+  script:
+    - cd services/recognition
+    - DEPS_HASH="$(sha256sum requirements.txt Dockerfile.deps | sha256sum | cut -d' ' -f1)"
+    - BASE_IMAGE="$IMAGE_PREFIX/recognition-deps:$DEPS_HASH"
+    - IMAGE="$IMAGE_PREFIX/recognition-worker:$CI_COMMIT_SHA"
+    - docker build --pull --build-arg "BASE_IMAGE=$BASE_IMAGE" --label "org.opencontainers.image.revision=$CI_COMMIT_SHA" --label "org.opencontainers.image.source=$CI_PROJECT_URL" -f Dockerfile.worker -t "$IMAGE" .
+    - docker push "$IMAGE"
+
+build:recognition-consumer:
+  extends: .docker-job
+  stage: build
+  needs:
+    - build:recognition-deps
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "deploy"'
+      changes:
+        paths:
+          - services/recognition/consumer/**/*
+          - services/recognition/core/**/*
+          - services/recognition/requirements.txt
+          - services/recognition/Dockerfile.deps
+          - services/recognition/Dockerfile.consumer
+          - .gitlab-ci.yml
+    - when: never
+  script:
+    - cd services/recognition
+    - DEPS_HASH="$(sha256sum requirements.txt Dockerfile.deps | sha256sum | cut -d' ' -f1)"
+    - BASE_IMAGE="$IMAGE_PREFIX/recognition-deps:$DEPS_HASH"
+    - IMAGE="$IMAGE_PREFIX/recognition-consumer:$CI_COMMIT_SHA"
+    - docker build --pull --build-arg "BASE_IMAGE=$BASE_IMAGE" --label "org.opencontainers.image.revision=$CI_COMMIT_SHA" --label "org.opencontainers.image.source=$CI_PROJECT_URL" -f Dockerfile.consumer -t "$IMAGE" .
+    - docker push "$IMAGE"
+
+publish:deploy-tags:
+  extends: .docker-job
+  stage: publish
+  resource_group: deploy-image-tags
+  needs:
+    - job: build:web
+      optional: true
+    - job: build:annotation
+      optional: true
+    - job: build:recognition-api
+      optional: true
+    - job: build:recognition-worker
+      optional: true
+    - job: build:recognition-consumer
+      optional: true
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "deploy"'
+      changes:
+        paths:
+          - apps/web/**/*
+          - services/annotation/**/*
+          - services/recognition/**/*
+          - .gitlab-ci.yml
+    - when: never
+  script:
+    - git fetch origin deploy
+    - |
+      if [ "$(git rev-parse origin/deploy)" != "$CI_COMMIT_SHA" ]; then
+        echo "A newer deploy commit exists; immutable SHA images are retained but deploy tags will not move backward."
+        exit 0
+      fi
+    - |
+      changed() {
+        if [ "$CI_COMMIT_BEFORE_SHA" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "$CI_COMMIT_BEFORE_SHA^{commit}" 2>/dev/null; then
+          return 0
+        fi
+        ! git diff --quiet "$CI_COMMIT_BEFORE_SHA" "$CI_COMMIT_SHA" -- "$@"
+      }
+      promote() {
+        image="$1"
+        docker pull "$IMAGE_PREFIX/$image:$CI_COMMIT_SHA"
+        docker tag "$IMAGE_PREFIX/$image:$CI_COMMIT_SHA" "$IMAGE_PREFIX/$image:deploy"
+        docker push "$IMAGE_PREFIX/$image:deploy"
+      }
+
+      ci_changed=0
+      if changed .gitlab-ci.yml; then ci_changed=1; fi
+
+      if [ "$ci_changed" -eq 1 ] || changed apps/web; then promote web; fi
+      if [ "$ci_changed" -eq 1 ] || changed services/annotation; then promote annotation; fi
+      if [ "$ci_changed" -eq 1 ] || changed services/recognition/api services/recognition/core services/recognition/engine services/recognition/alembic services/recognition/alembic.ini services/recognition/requirements.txt services/recognition/Dockerfile.deps services/recognition/Dockerfile.api; then promote recognition-api; fi
+      if [ "$ci_changed" -eq 1 ] || changed services/recognition/worker services/recognition/core services/recognition/engine services/recognition/requirements.txt services/recognition/Dockerfile.deps services/recognition/Dockerfile.worker; then promote recognition-worker; fi
+      if [ "$ci_changed" -eq 1 ] || changed services/recognition/consumer services/recognition/core services/recognition/requirements.txt services/recognition/Dockerfile.deps services/recognition/Dockerfile.consumer; then promote recognition-consumer; fi

@@ -1,0 +1,2 @@
+CREATE DATABASE annotation_studio_local;
+CREATE DATABASE recognition_service_local;

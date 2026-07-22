@@ -1,0 +1,122 @@
+import os
+from dotenv import load_dotenv
+
+load_dotenv(dotenv_path=os.getenv("APP_ENV_FILE") or None)
+
+
+class Config:
+    RABBITMQ_HOST = os.getenv("RABBITMQ_HOST")
+    RABBITMQ_PORT = int(os.getenv("RABBITMQ_PORT", 5672))
+    RABBITMQ_USER = os.getenv("RABBITMQ_USER")
+    RABBITMQ_PASS = os.getenv("RABBITMQ_PASS")
+    RABBITMQ_VHOST = os.getenv("RABBITMQ_VHOST", "/")
+    RABBITMQ_QUEUE = os.getenv("RABBITMQ_QUEUE", "task_queue")
+
+    # 任务接收队列：Worker 监听此队列以获取识别任务（入口）
+    QUEUE_NAME = os.getenv("RABBITMQ_QUEUE_NAME", "tasks.image.disease_detection")
+    TASK_DEAD_LETTER_EXCHANGE = os.getenv("RABBITMQ_TASK_DLX", f"{QUEUE_NAME}.dlx")
+    TASK_DEAD_LETTER_QUEUE = os.getenv("RABBITMQ_TASK_DLQ", f"{QUEUE_NAME}.dlq")
+    TASK_DEAD_LETTER_ROUTING_KEY = os.getenv(
+        "RABBITMQ_TASK_DLQ_ROUTING_KEY", TASK_DEAD_LETTER_QUEUE
+    )
+    # 识别任务名称：提交端和 Celery worker 注册端必须保持一致
+    RECOGNIZE_IMAGE_TASK_NAME = os.getenv(
+        "RECOGNIZE_IMAGE_TASK_NAME", "recognize_image"
+    )
+    # 结果广播交换机：Worker 完成任务后将结果发布到此处（出口/路由器）
+    RESULT_EXCHANGE = os.getenv(
+        "RABBITMQ_RESULT_EXCHANGE", "events.image.disease_detected"
+    )
+    # 结果存储队列：绑定到 RESULT_EXCHANGE，用于下游系统消费识别结果（出口终点）
+    RESULT_QUEUE = os.getenv("RABBITMQ_RESULT_QUEUE", "image_results")
+    RESULT_DEAD_LETTER_EXCHANGE = os.getenv(
+        "RABBITMQ_RESULT_DLX", f"{RESULT_QUEUE}.dlx"
+    )
+    RESULT_DEAD_LETTER_QUEUE = os.getenv("RABBITMQ_RESULT_DLQ", f"{RESULT_QUEUE}.dlq")
+    RESULT_DEAD_LETTER_ROUTING_KEY = os.getenv(
+        "RABBITMQ_RESULT_DLQ_ROUTING_KEY", RESULT_DEAD_LETTER_QUEUE
+    )
+
+    CALLBACK_RETRY_INTERVAL_SECONDS = int(
+        os.getenv("CALLBACK_RETRY_INTERVAL_SECONDS", 30)
+    )
+    CALLBACK_RETRY_TIMEOUT_SECONDS = int(
+        os.getenv("CALLBACK_RETRY_TIMEOUT_SECONDS", 3600)
+    )
+    CALLBACK_REQUEST_TIMEOUT_SECONDS = int(
+        os.getenv("CALLBACK_REQUEST_TIMEOUT_SECONDS", 10)
+    )
+    CALLBACK_MAX_ATTEMPTS = int(os.getenv("CALLBACK_MAX_ATTEMPTS", 1))
+    IMAGE_RETRY_MAX_ATTEMPTS = int(os.getenv("IMAGE_RETRY_MAX_ATTEMPTS", 3))
+    IMAGE_RETRY_DELAY_SECONDS = int(os.getenv("IMAGE_RETRY_DELAY_SECONDS", 30))
+    RESULT_DB_BATCH_SIZE = int(os.getenv("RESULT_DB_BATCH_SIZE", 50))
+    RESOURCE_CHECK_ENABLED = (
+        os.getenv("RESOURCE_CHECK_ENABLED", "true").lower() == "true"
+    )
+    RESOURCE_CHECK_INTERVAL_SECONDS = int(
+        os.getenv("RESOURCE_CHECK_INTERVAL_SECONDS", 5)
+    )
+    RESOURCE_MIN_SYSTEM_MEMORY_MB = int(
+        os.getenv("RESOURCE_MIN_SYSTEM_MEMORY_MB", 1024)
+    )
+    RESOURCE_MIN_GPU_MEMORY_MB = int(os.getenv("RESOURCE_MIN_GPU_MEMORY_MB", 2048))
+    RESOURCE_WAIT_TIMEOUT_SECONDS = int(os.getenv("RESOURCE_WAIT_TIMEOUT_SECONDS", 0))
+    RESULT_CONSUMER_CONCURRENCY = int(os.getenv("RESULT_CONSUMER_CONCURRENCY", 4))
+    MODELS_DIR = os.getenv("MODELS_DIR", "models")
+    SAM_IMAGE_SIZE = int(os.getenv("SAM_IMAGE_SIZE", 1568))
+    SAM_SEGMENTATION_EPSILON = float(os.getenv("SAM_SEGMENTATION_EPSILON", 4.0))
+
+    RABBITMQ_HEARTBEAT = int(os.getenv("RABBITMQ_HEARTBEAT", 600))
+    RABBITMQ_BLOCKED_CONNECTION_TIMEOUT = int(
+        os.getenv("RABBITMQ_BLOCKED_CONNECTION_TIMEOUT", 300)
+    )
+
+    S3_ENDPOINT = os.getenv("S3_ENDPOINT")
+    S3_ACCESS_KEY = os.getenv("S3_ACCESS_KEY")
+    S3_SECRET_KEY = os.getenv("S3_SECRET_KEY")
+    S3_REGION = os.getenv("S3_REGION", "us-east-1")
+    S3_SIGNATURE_VERSION = os.getenv("S3_SIGNATURE_VERSION", "s3v4")
+    S3_BUCKET = "ai-cmm"
+
+    @classmethod
+    def get_url(cls):
+        return f"amqp://{cls.RABBITMQ_USER}:{cls.RABBITMQ_PASS}@{cls.RABBITMQ_HOST}:{cls.RABBITMQ_PORT}/{cls.RABBITMQ_VHOST}"
+
+    # Broker 配置（如果你也在用 Redis 作为 broker）
+    REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
+    REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))  # 转整数
+    REDIS_DB = int(os.getenv("REDIS_DB", 0))  # 转整数
+    REDIS_PASSWORD = os.getenv("REDIS_PASSWORD")
+
+    # Backend URL
+    @property
+    def REDIS_BACKEND_URL(self):
+        if self.REDIS_PASSWORD:
+            return f"redis://:{self.REDIS_PASSWORD}@{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
+        return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
+
+    # 如果你同时用 Redis 作为 broker
+    @property
+    def BROKER_URL(self):
+        # 返回 Redis URL 或其他 broker URL
+        return self.REDIS_BACKEND_URL
+
+    # pg数据库配置
+    POSTGRES_HOST: str = os.getenv("POSTGRES_HOST", "localhost")
+    POSTGRES_PORT: int = int(os.getenv("POSTGRES_PORT", "5432"))
+    POSTGRES_USER: str = os.getenv("POSTGRES_USER", "postgres")
+    POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "")
+    POSTGRES_DB: str = os.getenv("POSTGRES_DB", "annotation_studio")
+
+    @property
+    def DATABASE_URL(self):
+        database_url = os.getenv("DATABASE_URL")
+        if database_url:
+            return database_url
+        return (
+            f"postgresql+psycopg2://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
+            f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+        )
+
+
+config = Config()

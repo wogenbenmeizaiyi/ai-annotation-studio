@@ -1,0 +1,82 @@
+services:
+  api:
+    image: image_detection_service_api:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+      args:
+        BASE_IMAGE: ${BASE_IMAGE:-image_detection_service_deps:latest}
+    container_name: image_detection_service_api
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - CUDA_VISIBLE_DEVICES=0
+      - NVIDIA_VISIBLE_DEVICES=0
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    gpus:
+      - driver: nvidia
+        device_ids:
+          - "0"
+        capabilities:
+          - gpu
+    ports:
+      - "7987:7987"
+    volumes:
+      - ./logs:/app/logs
+      - ./models:/app/models
+    command: >
+      sh -c "python -m uvicorn api_server:app --host 0.0.0.0 --port 7987
+      >> /app/logs/api.log 2>&1"
+
+  worker:
+    image: image_detection_service_worker:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+      args:
+        BASE_IMAGE: ${BASE_IMAGE:-image_detection_service_deps:latest}
+    container_name: image_detection_service_worker
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - CUDA_VISIBLE_DEVICES=0
+      - NVIDIA_VISIBLE_DEVICES=0
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    gpus:
+      - driver: nvidia
+        device_ids:
+          - "0"
+        capabilities:
+          - gpu
+    volumes:
+      - ./logs:/app/logs
+      - ./models:/app/models
+    command: >
+      python -m celery -A worker_server.celery_app worker
+      --loglevel=info
+      --logfile=/app/logs/worker.log
+      -Q ${RABBITMQ_QUEUE_NAME:?RABBITMQ_QUEUE_NAME is required}
+      --prefetch-multiplier=1
+      --concurrency=1
+
+  consumer:
+    image: image_detection_service_consumer:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.consumer
+      args:
+        BASE_IMAGE: ${BASE_IMAGE:-image_detection_service_deps:latest}
+    container_name: image_detection_service_consumer
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - PYTHONUTF8=1
+      - PYTHONIOENCODING=utf-8
+    volumes:
+      - ./logs:/app/logs
+    command: >
+      sh -c "python -m result_consumer
+      >> /app/logs/consumer.log 2>&1"

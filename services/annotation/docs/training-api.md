@@ -1,0 +1,632 @@
+# AI Annotation Studio 训练与 Agent 接口
+
+Base URL: `/api`
+
+统一响应格式：
+```json
+{
+  "success": true,
+  "message": "成功",
+  "data": ...,
+  "code": 200
+}
+```
+
+---
+
+## Train YOLO训练
+
+> **概念区分：**
+> - **标注任务**（TaskModel）：通过 `/api/tasks/*` 管理，以 `name`（如 `"铁锈"`）标识，包含图片和标注数据。
+> - **训练任务**（TrainTaskModel）：通过本组接口管理，以 `id`（自增整数）标识。同一个标注任务可以发起多次训练，每次生成一条独立的训练记录。
+>
+> **本组所有接口中的 `{task_id}` 均指训练任务ID**（`TrainTaskModel.id`），不是标注任务ID。
+
+### 接口速查
+
+| 接口 | 说明 |
+|---|---|
+| `POST /api/train/create` | 创建训练任务（传入标注任务名） |
+| `GET /api/train/list` | 查询训练任务列表（可按标注任务名过滤） |
+| `GET /api/train/{task_id}` | 查询单个训练任务状态 |
+| `GET /api/train/{task_id}/stream` | SSE 实时推送每轮训练指标 |
+| `GET /api/train/{task_id}/metrics` | 查询某训练任务的所有轮次历史指标 |
+| `GET /api/train/{task_id}/model/download` | 获取模型 S3 预签名下载链接 |
+| `DELETE /api/train/{task_id}` | 逻辑删除训练任务及其每轮指标 |
+| `POST /api/train/{task_id}/retry` | 将失败的训练任务重新放入队列 |
+
+### POST `/api/train/create`
+创建YOLO训练任务并写入PostgreSQL持久化队列。接口返回时状态为`QUEUED`；
+全局唯一GPU Worker领取后才构建数据集并开始训练。
+
+> `config` 可不传；不传时使用后端默认 YOLO26 训练配置。`model` 用于加载本地模型权重，`data` 由服务根据标注任务自动生成，前端不需要传 `data`。
+> 接口只开放影响模型效果、训练策略和数据增强的参数；保存目录、日志、缓存、worker、设备、profile、compile、seed、deterministic、time、max_det 等运行/输出/复现/评估上限类参数由后端统一管理。
+> `workers` 由后端环境变量 `YOLO_WORKERS` 控制，默认 `4`，不会作为接口参数开放。
+
+**Request Body:**
+```json
+{
+  "task_name": "my_task",
+  "priority": 0,
+  "config": {
+    "model": "yolo26n.pt",
+    "epochs": 100,
+    "batch": 16,
+    "imgsz": 640,
+    "optimizer": "auto",
+    "lr0": 0.01,
+    "patience": 100,
+    "mosaic": 1.0,
+    "val_split": 0.2
+  }
+}
+```
+
+`priority`范围为`-100`到`100`，默认`0`。数值越大越先执行；优先级相同时按进入队列时间和任务ID先进先出。
+
+**最小 Request Body:**
+```json
+{
+  "task_name": "my_task"
+}
+```
+
+**Config 字段说明:** `extra = "forbid"`，前端多传字段会直接报错。所有字段都有默认值；传入字段会覆盖默认值，未传字段使用默认值。
+后端会按当前安装的 Ultralytics 版本过滤训练参数；若某个配置项在当前版本不支持，会忽略该参数并写入 warning 日志，避免训练任务直接失败。
+
+**基础训练参数:**
+
+| 字段 | 类型 | 默认值 | 说明 |
+|---|---|---:|---|
+| `model` | `str` | `"yolo26n.pt"` | 本地模型文件名或路径 |
+| `epochs` | `int` | `100` | 训练轮数 |
+| `patience` | `int` | `100` | Early stopping 等待轮数 |
+| `batch` | `int \| float` | `16` | batch 大小；可传自动 batch 相关值 |
+| `imgsz` | `int \| int[]` | `640` | 输入尺寸 |
+| `pretrained` | `bool \| str` | `true` | 是否使用预训练权重或指定权重路径 |
+| `single_cls` | `bool` | `false` | 是否把所有类别当成单类训练 |
+| `classes` | `int[] \| null` | `null` | 只训练指定类别 |
+| `rect` | `bool` | `false` | 是否启用 rectangular training |
+| `multi_scale` | `float` | `0.0` | 多尺度训练范围 |
+| `cos_lr` | `bool` | `false` | 是否使用 cosine LR |
+| `close_mosaic` | `int` | `10` | 最后 N 轮关闭 mosaic |
+| `fraction` | `float` | `1.0` | 使用训练数据比例 |
+| `freeze` | `int \| int[] \| null` | `null` | 冻结层 |
+| `val` | `bool` | `true` | 训练中是否验证 |
+| `val_split` | `float` | `0.2` | 本服务构建数据集时验证集占比 |
+
+**优化器和损失参数:**
+
+| 字段 | 类型 | 默认值 | 说明 |
+|---|---|---:|---|
+| `optimizer` | `str` | `"auto"` | 优化器，如 `auto`、`SGD`、`AdamW` |
+| `lr0` | `float` | `0.01` | 初始学习率 |
+| `lrf` | `float` | `0.01` | 最终学习率系数 |
+| `momentum` | `float` | `0.937` | SGD momentum / Adam beta1 |
+| `weight_decay` | `float` | `0.0005` | 权重衰减 |
+| `warmup_epochs` | `float` | `3.0` | warmup 轮数 |
+| `warmup_momentum` | `float` | `0.8` | warmup 初始 momentum |
+| `warmup_bias_lr` | `float` | `0.1` | warmup bias 学习率 |
+| `box` | `float` | `7.5` | box loss 权重 |
+| `cls` | `float` | `0.5` | class loss 权重 |
+| `cls_pw` | `float` | `0.0` | YOLO26 分类正样本权重 |
+| `dfl` | `float` | `1.5` | DFL loss 权重 |
+| `pose` | `float` | `12.0` | pose loss 权重 |
+| `kobj` | `float` | `1.0` | keypoint objectness loss 权重 |
+| `rle` | `float` | `1.0` | RLE loss 权重 |
+| `angle` | `float` | `1.0` | angle/OBB loss 权重 |
+| `nbs` | `int` | `64` | nominal batch size |
+| `overlap_mask` | `bool` | `true` | 训练分割时是否允许 mask 重叠 |
+| `mask_ratio` | `int` | `4` | mask 下采样比例 |
+| `dropout` | `float` | `0.0` | dropout 比例 |
+
+**数据增强参数:**
+
+| 字段 | 类型 | 默认值 | 说明 |
+|---|---|---:|---|
+| `hsv_h` | `float` | `0.015` | 色相增强 |
+| `hsv_s` | `float` | `0.7` | 饱和度增强 |
+| `hsv_v` | `float` | `0.4` | 明度增强 |
+| `degrees` | `float` | `0.0` | 旋转角度 |
+| `translate` | `float` | `0.1` | 平移比例 |
+| `scale` | `float` | `0.5` | 缩放比例 |
+| `shear` | `float` | `0.0` | 剪切角度 |
+| `perspective` | `float` | `0.0` | 透视变换比例 |
+| `flipud` | `float` | `0.0` | 上下翻转概率 |
+| `fliplr` | `float` | `0.5` | 左右翻转概率 |
+| `bgr` | `float` | `0.0` | BGR 通道交换概率 |
+| `mosaic` | `float` | `1.0` | mosaic 概率 |
+| `mixup` | `float` | `0.0` | mixup 概率 |
+| `cutmix` | `float` | `0.0` | cutmix 概率 |
+| `copy_paste` | `float` | `0.0` | copy-paste 概率 |
+| `copy_paste_mode` | `str` | `"flip"` | copy-paste 模式 |
+| `auto_augment` | `str` | `"randaugment"` | 自动增强策略 |
+| `erasing` | `float` | `0.4` | random erasing 概率 |
+| `augmentations` | `object[] \| null` | `null` | Ultralytics 自定义增强配置 |
+
+### 可复现的数据集划分
+
+每次新训练都会根据任务ID、有效图片、YOLO标签、类别定义和`val_split`计算SHA256数据集指纹。
+划分使用图片稳定标识的哈希排序，不依赖数据库返回顺序、Python全局随机状态或服务重启。
+
+- 数据和`val_split`完全相同：复用同一份训练/验证集快照；
+- 图片、标注、类别或`val_split`任一变化：生成新的独立快照；
+- 不同快照使用独立目录，不会残留或混入上一次构建的文件；
+- 断点恢复固定使用原训练任务记录的快照；快照丢失时拒绝恢复，不会静默改用当前数据；
+- `manifest.json`记录训练集和验证集的图片ID、原文件名、快照文件名及S3 Key。
+
+快照默认位于：
+
+```text
+${TRAIN_DATA_DIR}/{task_name}/datasets/{dataset_fingerprint}/
+```
+
+训练任务响应会返回`dataset_fingerprint`、`dataset_yaml_path`和`dataset_manifest_path`，
+用于审计某次训练实际使用的数据。快照位于Docker持久化的`./storage`挂载中。
+
+**Response data:** 训练任务创建结果
+```json
+{
+  "success": true,
+  "message": "训练任务已进入队列",
+  "data": {
+    "task_id": 1
+  },
+  "code": 200
+}
+```
+> 创建成功不代表GPU已经开始训练。前端应通过任务列表或SSE观察`QUEUED → CLAIMED → RUNNING`状态变化。
+
+训练状态：
+
+- `QUEUED`：已持久化，等待唯一GPU Worker；
+- `CLAIMED`：Worker已经原子领取任务；
+- `RECOVERING`：发现持久化`last.pt`，正在准备断点恢复；
+- `RUNNING`：正在占用GPU训练；
+- `FINISHED`：训练和模型产出完成；
+- `ERROR`：训练失败，可重新入队；
+- `CANCELLED`：排队期间被删除。
+
+服务使用PostgreSQL advisory lock和行锁保证全局最多一个训练任务运行。Worker定期写入心跳；
+服务异常退出后，心跳过期的任务会重新入队。若存在`weights/last.pt`，则通过YOLO
+`resume=True`从断点继续；否则从头开始并清理旧轮次指标。
+
+### GET `/api/train/list`
+查询训练任务列表。支持按标注任务名过滤，返回该任务下的所有训练记录（同一任务可训练多次）。
+
+**Query Params（可选）:**
+- `task_name: str` — 标注任务名称。不传则返回全部训练任务。
+
+**Response data:** `TrainTaskModel.to_dict()` 列表，按创建时间倒序排列。
+```json
+{
+  "success": true,
+  "message": "成功",
+  "data": [
+    {
+      "id": 3,
+      "task_id": 1,
+      "model_name": "yolo26n.pt",
+      "status": "FINISHED",
+      "progress": 100,
+      "current_epoch": 100,
+      "total_epochs": 100,
+      "output_path": "yolo_models/3/best.pt",
+      "created_at": "...",
+      "updated_at": "..."
+    },
+    {
+      "id": 2,
+      "task_id": 1,
+      "model_name": "yolo26n.pt",
+      "status": "FINISHED",
+      "progress": 100,
+      "current_epoch": 50,
+      "total_epochs": 50,
+      "output_path": "yolo_models/2/best.pt",
+      "created_at": "...",
+      "updated_at": "..."
+    }
+  ],
+  "code": 200
+}
+```
+
+### GET `/api/train/{task_id}/stream`
+**SSE 流式推送** — 实时推送每轮训练指标。连接可随时建立，训练结束后自动关闭。
+
+**Event Source:** `text/event-stream`
+
+**推送格式（data 字段为 JSON）：**
+
+训练中每轮推送：
+```json
+{
+  "status": "RUNNING",
+  "epoch": 3,
+  "total_epochs": 100,
+  "progress": 3,
+  "metrics": [
+    {
+      "epoch": 1,
+      "train_box_loss": 2.55,
+      "train_seg_loss": null,
+      "train_cls_loss": 6.68,
+      "train_dfl_loss": 0.011,
+      "val_box_loss": 2.65,
+      "val_seg_loss": null,
+      "val_cls_loss": 7.67,
+      "val_dfl_loss": 0.014,
+      "precision": 0,
+      "recall": 0,
+      "map50": 0,
+      "map50_95": 0,
+      "mask_precision": null,
+      "mask_recall": null,
+      "mask_map50": null,
+      "mask_map50_95": null,
+      "fitness": 0,
+      "per_class_metrics": null,
+      "lr_pg0": 0.0001,
+      "lr_pg1": 0.0001,
+      "lr_pg2": 0.0991,
+      ...
+    },
+    {
+      "epoch": 2,
+      ...
+    },
+    {
+      "epoch": 3,
+      ...
+    }
+  ]
+}
+```
+
+训练结束时推送：
+```json
+{
+  "status": "FINISHED",
+  "s3_model_url": "yolo_models/42/best.pt",
+  "metrics": [
+    ... 完整历史指标列表
+  ]
+}
+```
+
+**连接规则：**
+- 训练中连接：先推送已有指标 → 持续监听新轮次 → 结束时推送 `FINISHED` 并关闭
+- 训练后连接：直接推送完整结果 → 关闭
+- 心跳：30 秒无新数据发送 `: heartbeat`
+- 错误：`status = "ERROR"`
+
+**JavaScript 示例：**
+```js
+const es = new EventSource(`/api/train/${taskId}/stream`);
+es.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+  if (data.status === "FINISHED") {
+    console.log("训练完成", data.s3_model_url);
+    es.close();
+  } else {
+    console.log(`Epoch ${data.epoch}/${data.total_epochs}`);
+    // data.metrics 包含从第1轮到当前轮的完整列表
+  }
+};
+es.onerror = () => es.close();
+```
+
+### GET `/api/train/{task_id}/metrics`
+查询某训练任务的所有轮次指标（从数据库读取）。训练完成后仍可用此接口查看历史数据。
+
+**Response data:**
+```json
+{
+  "success": true,
+  "message": "成功",
+  "data": {
+    "task": {
+      "id": 1,
+      "task_id": 1,
+      "model_name": "yolo26n.pt",
+      "status": "FINISHED",
+      "progress": 100,
+      "current_epoch": 100,
+      "total_epochs": 100,
+      "output_path": "yolo_models/1/best.pt",
+      "created_at": "...",
+      "updated_at": "..."
+    },
+    "metrics": [
+      {
+        "id": 1,
+        "train_task_id": 1,
+        "epoch": 1,
+        "time_cost": 12.34,
+        "train_box_loss": 2.55,
+        "train_seg_loss": null,
+        "train_cls_loss": 6.68,
+        "train_dfl_loss": 0.011,
+        "val_box_loss": 2.65,
+        "val_seg_loss": null,
+        "val_cls_loss": 7.67,
+        "val_dfl_loss": 0.014,
+        "precision": 0,
+        "recall": 0,
+        "map50": 0,
+        "map50_95": 0,
+        "mask_precision": null,
+        "mask_recall": null,
+        "mask_map50": null,
+        "mask_map50_95": null,
+        "fitness": 0,
+        "per_class_metrics": null,
+        "lr_pg0": 0.0001,
+        "lr_pg1": 0.0001,
+        "lr_pg2": 0.0991,
+        "is_best": false,
+        "created_at": "..."
+      },
+      ...
+    ]
+  },
+  "code": 200
+}
+```
+
+评估字段说明：
+
+- `precision/recall/map50/map50_95`：检测框（Box）整体指标；
+- `mask_precision/mask_recall/mask_map50/mask_map50_95`：分割轮廓（Mask）整体指标；
+- `train_seg_loss/val_seg_loss`：分割模型的训练和验证Mask损失；
+- `fitness`：Ultralytics用于选择最佳权重的综合适应度；
+- `per_class_metrics`：逐类别Box/Mask指标，供页面和Agent定位具体弱项。
+
+检测任务以Box mAP50-95作为主要质量指标；分割任务以Mask mAP50-95作为主要质量指标。
+分割任务必须使用`*-seg.pt`模型，否则不会产生Mask指标。
+逐类别指标只通过`GET /metrics`返回，不放入SSE历史数组，避免类别较多时进度消息持续膨胀。
+
+### GET `/api/train/{task_id}`
+查询单个训练任务状态。
+
+**Response data:** `TrainTaskModel.to_dict()`
+```json
+{
+  "id": 1,
+  "task_id": 1,
+  "model_name": "yolo26n.pt",
+  "status": "FINISHED",
+  "pid": null,
+  "progress": 100,
+  "current_epoch": 100,
+  "total_epochs": 100,
+  "error_message": null,
+  "config": { ... },
+  "log_path": "storage/train_data/my_task/logs/train.log",
+  "output_path": "yolo_models/1/best.pt",
+  "created_at": "...",
+  "updated_at": "..."
+}
+```
+
+### GET `/api/train/{task_id}/model/download`
+获取训练模型的 S3 预签名下载链接，有效期 1 小时。前端拿到链接后可直接从 S3/RustFS 下载模型文件。
+
+**Path Params:** `task_id: int`
+
+**Response data:**
+```json
+{
+  "success": true,
+  "message": "成功",
+  "data": {
+    "download_url": "http://172.16.0.110:9000/ai-cmm/yolo_models/3/best.pt?X-Amz-Algorithm=...&X-Amz-Expires=3600&...",
+    "expires_in": 3600,
+    "model_name": "yolo26n.pt",
+    "filename": "best_3.pt"
+  },
+  "code": 200
+}
+```
+
+> 若任务尚未完成或模型未上传，返回 404。
+
+### DELETE `/api/train/{task_id}`
+逻辑删除训练任务及其关联的每轮训练指标。模型文件保留在 S3 上，仍可下载。
+
+**Path Params:** `task_id: int`
+
+**Response data:**
+```json
+{
+  "success": true,
+  "message": "删除成功",
+  "data": null,
+  "code": 200
+}
+```
+
+> 删除后该训练任务及其指标不再出现在列表和查询结果中，但数据库记录保留。
+
+### POST `/api/train/{task_id}/retry`
+将`ERROR`任务重新放入队列。已完成、已排队或正在运行的任务不能重复入队。
+
+**Path Params:** `task_id: int`
+
+**Response data:**
+```json
+{
+  "success": true,
+  "message": "训练任务已重新进入队列",
+  "data": {
+    "task_id": 1
+  },
+  "code": 200
+}
+```
+
+---
+
+## YOLO Training Agent
+
+Agent 与现有标注、训练接口运行在同一个 FastAPI 服务中。API Key 只通过服务端环境变量配置，网页不接触模型密钥。
+
+环境变量：
+
+```dotenv
+AGENT_API_KEY=
+AGENT_MODEL=qwen3.7-plus
+AGENT_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+AGENT_TIMEOUT_SECONDS=60
+AGENT_MAX_OUTPUT_TOKENS=2000
+AGENT_FORCE_IPV4=true
+AGENT_LOG_FILE=/app/logs/agent.log
+AGENT_LOG_MAX_BYTES=10485760
+AGENT_LOG_BACKUP_COUNT=10
+```
+
+Agent运行日志会单独写入`AGENT_LOG_FILE`，默认采用10 MiB轮转并保留10个历史文件；
+同时也会输出到控制台和主日志`app.log`。日志不会记录API Key、确认令牌、用户对话正文或完整训练参数。
+内网服务器默认通过`AGENT_FORCE_IPV4=true`强制Agent模型请求使用IPv4，避免IPv6出口不完整导致TLS握手超时。
+Agent固定使用`enable_thinking=false`：`qwen3.7-plus`默认开启思考模式，但百炼的JSON结构化输出要求关闭思考模式，且参数助手需要较低响应延迟。
+
+### POST `/api/train/agent/chat`
+
+生成训练参数草案；传入 `train_task_id` 时，会读取该次训练保存的完整配置和指标，
+以原配置为基线生成优化草案。此接口不会启动训练。
+
+```json
+{
+  "session_id": null,
+  "task_name": "my_task",
+  "message": "小目标较多，希望准确率优先",
+  "current_config": {
+    "model": "yolo26n.pt",
+    "epochs": 100,
+    "batch": 16,
+    "imgsz": 640
+  },
+  "train_task_id": null
+}
+```
+
+返回的 `proposal_id` 对应后端校验并保存的参数草案；`config` 可填入训练页面。
+
+### GET `/api/train/agent/context/{task_name}`
+
+返回图片数量、标注数量、类别分布、目标尺寸分布和可用模型等数据集画像。
+
+### GET `/api/train/agent/analysis/{train_task_id}`
+
+使用确定性规则返回最佳轮次、收敛趋势、疑似过拟合、precision/recall 平衡和下一轮建议。该接口不依赖大模型，模型不可用时仍可调用。
+
+### GET `/api/train/agent/analysis/{train_task_id}/auto`
+
+训练状态变为`FINISHED`后，服务会在独立后台线程中自动调用一次大模型分析，并持久化结果。
+同一个`train_task_id`在`agent_training_analyses`表中具有唯一记录，不会因重复训练结束回调而重复调用。
+
+返回状态包括：
+
+- `PENDING`：已经登记，等待分析；
+- `RUNNING`：正在生成分析；
+- `COMPLETED`：`analysis`为确定性指标分析，`model_result.reply`为完整Markdown质量报告；
+- `FAILED`：自动分析失败，训练任务本身仍保持`FINISHED`。
+
+服务重启会恢复`PENDING`或`RUNNING`状态的分析。该接口只读取已保存结果，不会再次调用大模型。
+确定性分析会先于模型总结保存，因此即使模型请求失败，`analysis`仍可用于页面展示。
+当已保存报告的`analyzer_version`低于当前版本时，首次读取会把原记录重新置为`PENDING`并在后台升级，
+页面继续轮询即可得到新版报告；版本一致时GET请求不会重复调用大模型。
+分析器会根据标注任务类型选择主要指标：检测任务分析Box指标，分割任务分析Mask指标；
+存在`per_class_metrics`时还会把逐类别结果提供给大模型。
+完整报告包含执行结论、核心指标、收敛/过拟合、逐类别表现、问题根因、优化方案、
+下一轮实验目标和验收标准。报告会区分数据整改、训练参数和推理阈值。
+数据库表结构由Alembic管理；CI部署会在停止旧容器后自动执行`alembic upgrade head`。
+
+### POST `/api/train/agent/analysis/{train_task_id}/proposal`
+
+根据已完成训练的指标分析和该次训练保存的完整参数，生成下一轮优化训练草案。
+该接口会调用一次Agent，但只创建草案，不会启动训练。
+
+```json
+{
+  "instruction": "优先减少漏检，其他参数尽量保持不变"
+}
+```
+
+成功响应中的主要字段：
+
+- `proposal_id`：下一轮草案ID；
+- `config`：在上一轮完整配置基础上合并并经后端校验后的完整配置；
+- `changes`：每个变更的原值、新值和指标依据；
+- `warnings`：无法仅靠训练参数解决的数据或部署风险；
+- `ready_to_apply`：草案是否已经完整到可以让用户确认。
+
+用户确认并启动后，新训练任务的`parent_train_task_id`指向`train_task_id`；
+草案的`source_train_task_id`也会保留来源，因此可以连续形成多轮优化链路。
+下一轮训练完成后，分析结果中的`comparison_to_parent`会自动给出核心指标、Precision和Recall
+相对上一轮的变化量，并判断本轮参数实验是否取得改善。
+这表示“继承上一轮参数并重新实验”，不是自动从上一轮权重续训；是否从最佳权重微调应作为单独策略明确选择。
+
+### 训练队列环境变量
+
+```dotenv
+TRAIN_QUEUE_POLL_SECONDS=2
+TRAIN_WORKER_HEARTBEAT_SECONDS=15
+TRAIN_WORKER_STALE_SECONDS=120
+```
+
+`TRAIN_WORKER_STALE_SECONDS`必须明显大于心跳间隔，避免正常训练被误判为失联。
+
+### 数据库迁移
+
+```bash
+# 创建迁移
+uv run alembic revision --autogenerate -m "describe change"
+
+# 本地应用迁移
+uv run alembic upgrade head
+```
+
+CI会基于新构建的应用镜像执行相同升级命令；迁移失败时不会启动新服务。
+
+### POST `/api/train/agent/proposals/{proposal_id}/confirm`
+
+必须由训练页面的明确确认操作调用。`expected_config` 必须与 Agent 草案完全一致；成功后签发五分钟内、单次有效的 `confirmation_token`。
+
+```json
+{
+  "expected_config": {
+    "model": "yolo26n.pt",
+    "epochs": 150,
+    "batch": 8,
+    "imgsz": 960
+  }
+}
+```
+
+### POST `/api/train/agent/proposals/{proposal_id}/start`
+
+校验一次性确认令牌、草案状态和配置哈希后，创建训练任务并放入持久化队列。
+
+```json
+{
+  "confirmation_token": "confirm接口返回的一次性令牌"
+}
+```
+
+**Response data:**
+
+```json
+{
+  "proposal_id": "草案ID",
+  "train_task_id": 123,
+  "status": "QUEUED"
+}
+```
+
+令牌不能复用；参数变化、令牌过期或草案已经入队时均会拒绝请求。
+
+---
+
+

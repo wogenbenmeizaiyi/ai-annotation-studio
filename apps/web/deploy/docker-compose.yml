@@ -1,0 +1,13 @@
+name: ai-annotation-studio-web
+
+services:
+  web:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    image: ai-annotation-studio-web:latest
+    ports:
+      - "7280:80"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
