@@ -75,17 +75,34 @@ QWEN_API_KEY=你的_qwen_key
 
 ### 首次创建超级管理员
 
-首次启动的认证数据库没有默认账号。保持 `dev.ps1` 运行，另开一个 PowerShell，在仓库根目录执行：
+首次启动的认证数据库没有默认账号。普通注册只能创建待审批的普通用户，首个超级管理员必须
+通过交互式 CLI 创建。平台超级管理员与 PostgreSQL 用户是两套完全不同的账号。
+
+本地基础设施模式下，保持 `dev.ps1` 运行，另开一个 PowerShell，在仓库根目录执行：
 
 ```powershell
 $env:APP_ENV_FILE = (Resolve-Path .local\env\auth.env).Path
-cd services\auth
+Push-Location services\auth
 uv run python -m scripts.create_super_admin
+Pop-Location
+```
+
+外部基础设施模式使用认证服务自己的 `.env`：
+
+```powershell
+$env:APP_ENV_FILE = (Resolve-Path services\auth\.env).Path
+Push-Location services\auth
+uv run python -m scripts.create_super_admin
+Pop-Location
 ```
 
 按提示输入用户名、显示名称和至少 12 位的密码，然后访问 `http://127.0.0.1:5173` 登录。
 普通用户可在登录页申请注册，账号初始状态为“待审批”；超级管理员登录后从侧栏进入
 “用户管理”批准账号。管理员重置密码后，用户下次登录必须先修改密码。
+
+如果 CLI 提示表不存在，先运行对应模式的 `dev.ps1 -Profile api/full`。启动脚本会执行
+`alembic upgrade head` 创建认证表，但不会自动创建外部 PostgreSQL 数据库，也不会自动创建
+超级管理员。
 
 RabbitMQ、MinIO 等本地登录凭据保存在 `.local/infra.env`。首次启动时 Torch/Ultralytics
 加载可能较慢；如果页面暂时出现 500，请等三个 API 日志出现
@@ -109,6 +126,31 @@ RabbitMQ、MinIO 等本地登录凭据保存在 `.local/infra.env`。首次启�
 | `apps/web/.env.local` | 可选 | 不创建时前端默认连接本机两个 API 和 SAM3 WebSocket |
 | `services/auth/.env` | 本地模式不需要 | 本地脚本自动生成认证数据库、Redis 和签名密钥配置 |
 
+### 认证参数说明
+
+| 参数 | 所在服务 | 作用 |
+| --- | --- | --- |
+| `AUTH_ISSUER` | 三个服务 | JWT 签发者标识；三个服务必须完全一致 |
+| `AUTH_AUDIENCE` | 三个服务 | JWT 使用方标识；三个服务必须完全一致 |
+| `AUTH_PRIVATE_KEY_PATH` | 仅认证服务 | 签发登录令牌的私钥，不能提供给业务服务 |
+| `AUTH_PUBLIC_KEY_PATH` | 三个服务 | 认证服务写入公钥，标注和识别服务用它验证登录令牌 |
+| `AUTH_COOKIE_SECURE` | 认证服务 | 本地 HTTP 使用 `false`；正式 HTTPS 必须使用 `true` |
+| `AUTH_ALLOWED_ORIGINS` | 认证、标注服务 | 允许携带平台 Cookie 的前端 Origin，不是用户/IP 白名单 |
+| `PLATFORM_ALLOWED_ORIGINS` | 识别服务 | 识别管理页面的前端 Origin；匿名检测接口使用独立公开策略 |
+| `AUTH_ACCESS_TOKEN_MINUTES` | 认证服务 | 短期访问令牌有效分钟数，默认 15 |
+| `AUTH_REFRESH_TOKEN_DAYS` | 认证服务 | 可轮换刷新会话的有效天数，默认 7 |
+| `AUTH_REDIS_*` / `REDIS_DB` | 三个服务 | 登录限流、用户状态和会话撤销信息；必须指向同一个 Redis DB |
+
+Origin 的格式是“协议 + 主机/IP + 端口”，不包含接口路径。例如：
+
+```dotenv
+AUTH_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173,http://server-host:7280
+```
+
+所有访问同一个前端地址的用户使用相同 Origin，不需要填写每个用户的客户端 IP。登录使用
+Cookie，因此不能把平台认证来源配置成 `*`。正式部署推荐由 Nginx 在同一站点下转发
+`/api/auth`、`/api/annotation` 和 `/api/recognition`。
+
 使用 `-Infra local` 时，启动脚本先读取三个服务 `.env` 中的业务配置，再用
 `.local/infra.env` 覆盖 PostgreSQL、RabbitMQ、Redis 和 S3 的连接地址及凭据。因此，即使
 业务服务 `.env` 只填写了 Qwen Key，其余本地组件仍会自动启动和配置。三个本地数据库固定为
@@ -125,11 +167,39 @@ RabbitMQ、MinIO 等本地登录凭据保存在 `.local/infra.env`。首次启�
 使用 `-Infra external` 时，三个服务的 `.env` 都必须存在并填写完整的外部连接；它们可以
 使用相同的 `POSTGRES_HOST`、`POSTGRES_PORT`、用户名和密码，但 `POSTGRES_DB` 必须互不相同。
 
+先复制认证服务模板：
+
+```powershell
+Copy-Item services\auth\.env.example services\auth\.env
+notepad services\auth\.env
+```
+
 | 服务 | 外部模式必填连接参数 | 可选参数 |
 | --- | --- | --- |
 | 标注服务 | `POSTGRES_HOST`、`POSTGRES_USER`、`POSTGRES_PASSWORD`、`POSTGRES_DB`、`S3_ENDPOINT`、`S3_ACCESS_KEY`、`S3_SECRET_KEY` | `POSTGRES_PORT`、S3 region/signature/bucket 使用默认值时可省略 |
 | 识别服务 | `POSTGRES_HOST`、`POSTGRES_USER`、`POSTGRES_PASSWORD`、`POSTGRES_DB`、`RABBITMQ_HOST`、`RABBITMQ_USER`、`RABBITMQ_PASS`、`REDIS_HOST`、`S3_ENDPOINT`、`S3_ACCESS_KEY`、`S3_SECRET_KEY` | 各端口、RabbitMQ vhost、Redis DB 和无密码 Redis 的 password 可省略 |
-| 认证服务 | `POSTGRES_HOST`、`POSTGRES_USER`、`POSTGRES_PASSWORD`、`POSTGRES_DB`、`REDIS_HOST`、`AUTH_PRIVATE_KEY_PATH`、`AUTH_PUBLIC_KEY_PATH` | 各端口、无密码 Redis 的 password 可省略；生产环境必须预先挂载 Ed25519 密钥 |
+| 认证服务 | `POSTGRES_HOST`、`POSTGRES_USER`、`POSTGRES_PASSWORD`、`POSTGRES_DB`、`REDIS_HOST` | 各端口、无密码 Redis 的 password 可省略；开发环境可使用默认密钥路径，生产环境必须预先挂载 Ed25519 密钥 |
+
+外部 PostgreSQL 数据库必须提前创建。数据库没有独立密码，连接密码属于 PostgreSQL Role。
+例如使用数据库管理员执行：
+
+```sql
+CREATE DATABASE auth_service OWNER auth_service_user;
+```
+
+随后在 `services/auth/.env` 中填写 `auth_service_user` 的现有密码。不要把平台登录的
+`super_admin` 与 PostgreSQL Role 混淆。
+
+启动脚本会先检查三个外部数据库和其他依赖，再自动执行三个服务各自的 Alembic 迁移：
+
+```powershell
+.\scripts\dev.ps1 -Profile full -Infra external
+```
+
+外部模式会以 `services/auth/.env` 为认证配置来源，生成 Git 忽略的
+`.local/env/external-*.env`，并自动把公钥、Issuer、Audience 和认证 Redis 同步给标注与
+识别服务。因此不需要在三个 `.env` 中重复保存认证 Redis 密码。修改任何 `.env` 后都必须
+按 `Ctrl+C` 完整停止并重新启动。
 
 `-Infra auto` 不会根据 Qwen Key 自动配置外部基础设施。它会把三个 `.env` 当作候选外部
 配置执行带认证的协议检查：只有三个服务的 `.env` 都存在、所有外部依赖都可用且三个数据库互不相同时才

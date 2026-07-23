@@ -140,6 +140,18 @@ function Write-EffectiveEnvironment {
     [IO.File]::WriteAllLines($Destination, $lines, [Text.UTF8Encoding]::new($false))
 }
 
+function Resolve-EnvironmentFilePath {
+    param(
+        [Parameter(Mandatory)][string]$Value,
+        [Parameter(Mandatory)][string]$BaseDirectory
+    )
+
+    if ([IO.Path]::IsPathRooted($Value)) {
+        return [IO.Path]::GetFullPath($Value)
+    }
+    return [IO.Path]::GetFullPath((Join-Path $BaseDirectory $Value))
+}
+
 function Ensure-ApplicationDependencies {
     if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
         throw 'uv was not found. Install uv before starting the Python services.'
@@ -263,6 +275,66 @@ function New-LocalEffectiveEnvironments {
     }
     Write-EffectiveEnvironment $AnnotationSourceEnvironment $annotationEffective $annotationOverrides
     Write-EffectiveEnvironment $RecognitionSourceEnvironment $recognitionEffective $recognitionOverrides
+    Write-EffectiveEnvironment $AuthSourceEnvironment $authEffective $authOverrides
+    return @($annotationEffective, $recognitionEffective, $authEffective)
+}
+
+function New-ExternalEffectiveEnvironments {
+    $authValues = Read-DotEnv $AuthSourceEnvironment
+    $annotationEffective = Join-Path $EffectiveEnvironmentDirectory 'external-annotation.env'
+    $recognitionEffective = Join-Path $EffectiveEnvironmentDirectory 'external-recognition.env'
+    $authEffective = Join-Path $EffectiveEnvironmentDirectory 'external-auth.env'
+
+    $authPrivateKey = Resolve-EnvironmentFilePath (
+        Get-EnvironmentValue $authValues 'AUTH_PRIVATE_KEY_PATH' '.local/keys/auth-private.pem'
+    ) $AuthService
+    $authPublicKey = Resolve-EnvironmentFilePath (
+        Get-EnvironmentValue $authValues 'AUTH_PUBLIC_KEY_PATH' '.local/keys/auth-public.pem'
+    ) $AuthService
+    $authIssuer = Get-EnvironmentValue $authValues 'AUTH_ISSUER' 'ai-annotation-studio-auth'
+    $authAudience = Get-EnvironmentValue $authValues 'AUTH_AUDIENCE' 'ai-annotation-studio'
+    $authAllowedOrigins = Get-EnvironmentValue $authValues 'AUTH_ALLOWED_ORIGINS' (
+        'http://localhost:5173,http://127.0.0.1:5173'
+    )
+    $authRedisHost = Get-EnvironmentValue $authValues 'REDIS_HOST' 'localhost'
+    $authRedisPort = Get-EnvironmentValue $authValues 'REDIS_PORT' '6379'
+    $authRedisPassword = Get-EnvironmentValue $authValues 'REDIS_PASSWORD'
+    $authRedisDatabase = Get-EnvironmentValue $authValues 'REDIS_DB' '3'
+    if ($authRedisPassword) {
+        $encodedRedisPassword = [Uri]::EscapeDataString($authRedisPassword)
+        $authRedisUrl = "redis://:${encodedRedisPassword}@${authRedisHost}:${authRedisPort}/${authRedisDatabase}"
+    }
+    else {
+        $authRedisUrl = "redis://${authRedisHost}:${authRedisPort}/${authRedisDatabase}"
+    }
+
+    $annotationOverrides = @{
+        AUTH_PUBLIC_KEY_PATH = $authPublicKey
+        AUTH_ISSUER = $authIssuer
+        AUTH_AUDIENCE = $authAudience
+        AUTH_REDIS_HOST = $authRedisHost
+        AUTH_REDIS_PORT = $authRedisPort
+        AUTH_REDIS_PASSWORD = $authRedisPassword
+        AUTH_REDIS_DB = $authRedisDatabase
+        AUTH_ALLOWED_ORIGINS = $authAllowedOrigins
+    }
+    $recognitionOverrides = @{
+        AUTH_PUBLIC_KEY_PATH = $authPublicKey
+        AUTH_ISSUER = $authIssuer
+        AUTH_AUDIENCE = $authAudience
+        AUTH_REDIS_URL = $authRedisUrl
+        AUTH_REDIS_DB = $authRedisDatabase
+        PLATFORM_ALLOWED_ORIGINS = $authAllowedOrigins
+    }
+    $authOverrides = @{
+        AUTH_PRIVATE_KEY_PATH = $authPrivateKey
+        AUTH_PUBLIC_KEY_PATH = $authPublicKey
+    }
+
+    Write-EffectiveEnvironment `
+        $AnnotationSourceEnvironment $annotationEffective $annotationOverrides
+    Write-EffectiveEnvironment `
+        $RecognitionSourceEnvironment $recognitionEffective $recognitionOverrides
     Write-EffectiveEnvironment $AuthSourceEnvironment $authEffective $authOverrides
     return @($annotationEffective, $recognitionEffective, $authEffective)
 }
@@ -451,6 +523,10 @@ if ($Profile -in @('api', 'full')) {
         }
     }
     else {
+        $effectiveEnvironments = New-ExternalEffectiveEnvironments
+        $annotationEnvironment = $effectiveEnvironments[0]
+        $recognitionEnvironment = $effectiveEnvironments[1]
+        $authEnvironment = $effectiveEnvironments[2]
         Write-Host 'Using configured external infrastructure.' -ForegroundColor Green
     }
 
