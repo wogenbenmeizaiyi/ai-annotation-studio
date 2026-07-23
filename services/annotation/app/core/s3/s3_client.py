@@ -7,6 +7,7 @@ from app.core.config import settings
 class S3Client:
     _instance = None
     _s3_client = None
+    _presign_client = None
 
     def __new__(cls):
         if cls._instance is None:
@@ -18,6 +19,14 @@ class S3Client:
         self._s3_client = boto3.client(
             "s3",
             endpoint_url=settings.S3_ENDPOINT,
+            aws_access_key_id=settings.S3_ACCESS_KEY,
+            aws_secret_access_key=settings.S3_SECRET_KEY,
+            config=Config(signature_version=settings.S3_SIGNATURE_VERSION),
+            region_name=settings.S3_REGION,
+        )
+        self._presign_client = boto3.client(
+            "s3",
+            endpoint_url=settings.S3_PUBLIC_ENDPOINT,
             aws_access_key_id=settings.S3_ACCESS_KEY,
             aws_secret_access_key=settings.S3_SECRET_KEY,
             config=Config(signature_version=settings.S3_SIGNATURE_VERSION),
@@ -45,7 +54,7 @@ class S3Client:
         Returns:
             预签名URL字符串
         """
-        return self._s3_client.generate_presigned_url(
+        return self._presign_client.generate_presigned_url(
             "get_object",
             Params={"Bucket": bucket, "Key": key},
             ExpiresIn=expires_in,

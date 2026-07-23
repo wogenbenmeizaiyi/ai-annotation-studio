@@ -25,6 +25,7 @@ class Settings:
 
     # ===== RustFS (S3 compatible) =====
     S3_ENDPOINT: str = os.getenv("S3_ENDPOINT", "http://localhost:9000")
+    S3_PUBLIC_ENDPOINT: str = os.getenv("S3_PUBLIC_ENDPOINT", S3_ENDPOINT)
     S3_ACCESS_KEY: str = os.getenv("S3_ACCESS_KEY", "")
     S3_SECRET_KEY: str = os.getenv("S3_SECRET_KEY", "")
     S3_REGION: str = os.getenv("S3_REGION", "us-east-1")

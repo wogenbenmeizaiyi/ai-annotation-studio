@@ -331,6 +331,73 @@ recognition-consumer
 
 运行镜像同时具有不可变的 `$CI_COMMIT_SHA` 标签和浮动的 `deploy` 标签。三个 Python 依赖镜像使用构建输入哈希缓存；较旧流水线不会把 `deploy` 标签回退到旧提交。
 
+### 离线导出 Linux 镜像
+
+Windows 使用 `scripts/export-images.ps1`，Linux 使用 `scripts/export-images.sh`。两个脚本都
+可以把镜像保存为 gzip 压缩包，并生成 SHA-256 校验文件。
+加入认证服务后，业务运行镜像共 6 个：Web、标注、认证、识别 API、Worker 和 Consumer。
+
+第一次打包或源码变化后，构建并导出 Linux AMD64 业务镜像：
+
+```powershell
+.\scripts\export-images.ps1 -ImageSet business -Tag offline -Build
+```
+
+业务镜像已经存在时，只导出、不重新构建：
+
+```powershell
+.\scripts\export-images.ps1 -ImageSet business -Tag offline
+```
+
+单独导出本地 PostgreSQL、RabbitMQ、Redis、MinIO 和 MinIO Client 镜像：
+
+```powershell
+.\scripts\export-images.ps1 -ImageSet infrastructure
+```
+
+同时导出业务和基础设施镜像：
+
+```powershell
+.\scripts\export-images.ps1 -ImageSet all -Tag offline -Build
+```
+
+Linux 上保留同样的流程。首次赋予脚本执行权限：
+
+```bash
+chmod +x scripts/export-images.sh
+```
+
+构建并导出业务镜像：
+
+```bash
+./scripts/export-images.sh --image-set business --tag offline --build
+```
+
+如果对应标签的业务镜像已经存在，只导出而不重新构建：
+
+```bash
+./scripts/export-images.sh --image-set business --tag offline
+```
+
+也可以导出基础设施或全部镜像：
+
+```bash
+./scripts/export-images.sh --image-set infrastructure
+./scripts/export-images.sh --image-set all --tag offline --build
+```
+
+默认文件写入 `.local/exports/`。也可以使用
+PowerShell 的 `-OutputPath D:\packages\ai-annotation-studio.tar.gz`，或 Linux 的
+`--output /opt/packages/ai-annotation-studio.tar.gz` 指定位置。Linux 服务器校验并导入：
+
+```bash
+sha256sum -c ai-annotation-studio.tar.gz.sha256
+docker load -i ai-annotation-studio.tar.gz
+```
+
+镜像包不包含 PostgreSQL/MinIO 数据卷、生产 `.env`、认证私钥或模型文件。完整部署仍需要
+Compose、外部依赖连接、持久化目录、认证密钥和模型挂载。
+
 ## 认证与公开检测边界
 
 - 标注、训练、Agent、模型库、综合配置和识别任务管理必须登录。
@@ -340,4 +407,82 @@ recognition-consumer
 - 匿名检测带 IP 限流、图片数量/体积限制和外部图片 URL 的 SSRF 防护。
 - 公开接口文档位于识别服务 `/public/docs`；完整接口文档只允许超级管理员访问。
 
-本阶段不包含 SSH、服务器 Compose 文件交付、`docker pull` 或生产容器启动。
+## Linux 单机源码部署
+
+如果不使用 GitLab CI，可以在一台全新的 Linux 服务器上从 GitHub 拉取源码，然后直接在
+服务器本机构建并运行整套系统。该方式使用 `infra/server/` 中的独立 Compose，不连接也不
+迁移原有数据库。
+
+服务器需要：
+
+- Linux AMD64
+- Docker Engine 和 Docker Compose 插件
+- 可访问 Docker Hub、npm 镜像和 Python 包源
+- 运行 GPU 推理/训练时安装 NVIDIA 驱动与 NVIDIA Container Toolkit
+- 至少预留足够的磁盘空间；PyTorch CUDA 基础镜像和 6 个业务镜像体积较大
+
+拉取源码后执行：
+
+```bash
+git clone git@github.com:wogenbenmeizaiyi/ai-annotation-studio.git
+cd ai-annotation-studio
+chmod +x scripts/server-local.sh scripts/export-images.sh
+
+./scripts/server-local.sh up --origin http://服务器IP:7280
+```
+
+首次运行会：
+
+1. 在 `.local/server.env` 生成随机 PostgreSQL、RabbitMQ、Redis 和 MinIO 凭据。
+2. 根据当前源码构建 Web、标注、认证、识别 API、Worker 和 Consumer 镜像。
+3. 启动本机 PostgreSQL、RabbitMQ、Redis 和 MinIO。
+4. 创建三个全新的空数据库以及 `ai-cmm` bucket。
+5. 对空数据库执行 Alembic，创建当前版本表结构。
+6. 生成并持久化认证 Ed25519 密钥。
+7. 启动所有业务容器和 Nginx。
+
+这里的 Alembic 只用于初始化新库表结构，不读取、不复制也不转换旧环境数据。三个数据库和
+基础设施数据保存在 Compose 命名卷中，重复执行 `up` 会继续使用已有数据。
+
+首次启动成功后创建平台超级管理员：
+
+```bash
+./scripts/server-local.sh create-admin
+```
+
+常用操作：
+
+```bash
+# 查看状态和日志
+./scripts/server-local.sh status
+./scripts/server-local.sh logs
+
+# git pull 后重新按当前源码构建并更新容器
+./scripts/server-local.sh up
+
+# 镜像已经构建好时跳过构建
+./scripts/server-local.sh up --no-build
+
+# 停止但保留所有数据
+./scripts/server-local.sh down
+
+# 确认删除这套新部署的所有命名卷
+./scripts/server-local.sh reset --yes
+```
+
+脚本默认自动检测 NVIDIA Container Runtime；检测到时为标注 API、识别 API 和 Worker
+启用 GPU。也可以使用 `--gpu` 或 `--cpu` 明确指定。模型文件不会从 Git 自动下载，需要放到：
+
+```text
+services/annotation/models/
+services/recognition/models/
+```
+
+默认只有 Web `7280` 和用于预签名对象地址的 MinIO API `19000` 对外监听。PostgreSQL、
+RabbitMQ、Redis 和 MinIO 控制台只绑定服务器的 `127.0.0.1`。浏览器、标注 API、认证 API、
+公开检测 API 和 SAM3 WebSocket 都通过 Web/Nginx 同一入口访问。
+
+部署配置保存在 Git 忽略的 `.local/server.env`。要填写 Qwen Key、修改端口或切换 HTTPS，
+编辑这个文件后重新执行 `./scripts/server-local.sh up`。正式 HTTPS 场景还需要在外层反向
+代理配置证书，并把 `PUBLIC_ORIGIN`、`AUTH_ALLOWED_ORIGINS`、`AUTH_COOKIE_SECURE` 和
+`S3_PUBLIC_ENDPOINT` 改成浏览器实际可访问的地址。
