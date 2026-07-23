@@ -1,14 +1,12 @@
 <template>
   <div class="task-list-page">
-    <!-- 页面标题和添加按钮 -->
-    <div class="page-header">
-      <h1 class="page-title">任务列表</h1>
-      <div class="page-actions">
+    <PageHeader title="标注任务" description="管理检测与分割数据集，并从同一任务进入标注和训练。">
+      <template #actions>
         <v-btn color="primary" prepend-icon="mdi-plus" @click="showAddForm = true">
           添加新任务
         </v-btn>
-      </div>
-    </div>
+      </template>
+    </PageHeader>
 
     <!-- 任务列表 -->
     <div class="tasks-grid">
@@ -22,7 +20,7 @@
         <v-card-text class="task-card-content">
           <div class="task-card-title-row">
             <div class="task-title text-h6 font-weight-bold">{{ task.name }}</div>
-            <v-chip size="x-small" variant="flat" color="grey-lighten-3" class="ml-2">
+            <v-chip size="x-small" variant="tonal" color="secondary" class="ml-2">
               #{{ index + 1 }}
             </v-chip>
           </div>
@@ -46,7 +44,8 @@
                 v-for="category in task.categories"
                 :key="category.id"
                 size="x-small"
-                variant="outlined"
+                variant="flat"
+                class="task-category-chip"
               >
                 {{ category.name }}
                 <span v-if="category.supercategory" class="text-medium-emphasis ml-1">
@@ -61,8 +60,6 @@
             <div class="description-text text-body-2">{{ task.description }}</div>
           </div>
         </v-card-text>
-
-        <v-divider />
 
         <v-card-actions>
           <v-btn
@@ -168,6 +165,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { type AssignmentDTO, type NewTask } from '@/types/task'
+import PageHeader from '@/components/common/PageHeader.vue'
 import router from '@/router'
 import { createTask, deleteTask, getTasks } from '@/api/services'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
@@ -306,60 +304,56 @@ const handleDeleteTask = async (taskName: string): Promise<void> => {
 
 <style scoped>
 .task-list-page {
+  height: 100%;
   min-height: 100%;
   box-sizing: border-box;
   background: rgb(var(--v-theme-background));
-  padding: 24px;
+  padding: 28px;
+  overflow-y: auto;
 }
 
-.page-header {
-  max-width: 1200px;
-  margin: 0 auto 32px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.page-title {
-  font-size: 28px;
-  font-weight: 600;
-  color: rgb(var(--v-theme-on-background));
-  margin: 0;
-}
-
-.page-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+.task-list-page > :deep(.studio-page-header) {
+  max-width: 1360px;
+  margin: 0 auto 22px;
 }
 
 .tasks-grid {
-  max-width: 1200px;
+  max-width: 1360px;
   margin: 0 auto;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 24px;
+  gap: 14px;
 }
 
 .task-card {
   cursor: pointer;
   display: flex;
-  min-height: 268px;
+  min-height: 0;
   flex-direction: column;
+  background: var(--studio-surface-1);
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.15s ease;
+}
+
+.task-card:hover {
+  background: var(--studio-surface-2);
+  transform: translateY(-1px);
 }
 
 .task-card-content {
   flex: 1;
   display: flex;
   flex-direction: column;
+  padding: 14px;
 }
 
 .task-card-title-row {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  min-height: 32px;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .task-title {
@@ -372,25 +366,32 @@ const handleDeleteTask = async (taskName: string): Promise<void> => {
 }
 
 .task-type-row {
-  min-height: 32px;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .task-category-section {
-  min-height: 56px;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .task-description-section {
-  min-height: 50px;
+  margin-bottom: 2px;
 }
 
 .task-description-section.is-empty {
-  visibility: hidden;
+  display: none;
+}
+
+.task-category-chip {
+  color: var(--studio-ink-muted) !important;
+  background: var(--studio-surface-2) !important;
+  border: 1px solid var(--studio-hairline) !important;
 }
 
 .task-card :deep(.v-card-actions) {
   margin-top: auto;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.015);
+  border-top: 1px solid var(--studio-hairline);
 }
 
 .description-text {
@@ -413,16 +414,6 @@ const handleDeleteTask = async (taskName: string): Promise<void> => {
     padding: 16px;
   }
 
-  .page-header {
-    flex-direction: column;
-    gap: 16px;
-    align-items: stretch;
-  }
-
-  .page-actions {
-    width: 100%;
-  }
-
   .tasks-grid {
     grid-template-columns: 1fr;
     gap: 16px;
@@ -431,7 +422,7 @@ const handleDeleteTask = async (taskName: string): Promise<void> => {
 
 @media (min-width: 1025px) {
   .tasks-grid {
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   }
 }
 </style>

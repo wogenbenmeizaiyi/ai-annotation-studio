@@ -2,6 +2,20 @@
 
 :root {
   --app-zoom: 1;
+  --studio-canvas: #010102;
+  --studio-surface-1: #0f1011;
+  --studio-surface-2: #141516;
+  --studio-surface-3: #18191a;
+  --studio-surface-4: #191a1b;
+  --studio-hairline: #23252a;
+  --studio-hairline-strong: #34343a;
+  --studio-ink: #f7f8f8;
+  --studio-ink-muted: #d0d6e0;
+  --studio-ink-subtle: #8a8f98;
+  --studio-ink-tertiary: #62666d;
+  --studio-primary: #5e6ad2;
+  --studio-primary-hover: #828fff;
+  --studio-focus-ring: rgba(94, 106, 210, 0.5);
 }
 
 /*
@@ -30,4 +44,318 @@
 
 #app {
   min-height: 100vh;
+  color: var(--studio-ink);
+  background: var(--studio-canvas);
+  font-family:
+    Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei',
+    sans-serif;
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+  scrollbar-color: var(--studio-hairline-strong) transparent;
+  scrollbar-width: thin;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--studio-hairline-strong);
+  border: 2px solid transparent;
+  border-radius: 8px;
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--studio-ink-tertiary);
+  background-clip: padding-box;
+}
+
+::selection {
+  color: #fff;
+  background: rgba(94, 106, 210, 0.55);
+}
+
+:focus-visible {
+  outline: 2px solid var(--studio-focus-ring);
+  outline-offset: 2px;
+}
+
+/* Vuetify fields already render their own rounded focus state. */
+#app .v-field input:focus-visible,
+#app .v-field textarea:focus-visible,
+#app .v-field [contenteditable='true']:focus-visible {
+  outline: none;
+}
+
+#app .v-card {
+  background: var(--studio-surface-1);
+  border: 1px solid var(--studio-hairline);
+  box-shadow: none !important;
+}
+
+#app .v-card:hover {
+  border-color: var(--studio-hairline-strong);
+}
+
+#app .v-btn {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+#app .v-btn--variant-outlined {
+  border-color: var(--studio-hairline-strong);
+}
+
+#app .v-btn--variant-text:not(.text-error) {
+  color: var(--studio-ink-muted);
+}
+
+#app .v-field {
+  background: var(--studio-surface-1);
+  border-radius: 8px;
+}
+
+#app .v-field__outline {
+  --v-field-border-opacity: 1;
+  color: var(--studio-hairline-strong);
+}
+
+#app .v-field--focused .v-field__outline {
+  color: var(--studio-primary);
+}
+
+#app .v-table {
+  color: var(--studio-ink-muted);
+  background: var(--studio-surface-1);
+}
+
+#app .v-table thead th {
+  color: var(--studio-ink-subtle);
+  background: var(--studio-surface-2);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.1px;
+}
+
+#app .v-table tbody tr:not(:last-child) > td {
+  border-bottom-color: var(--studio-hairline);
+}
+
+#app .v-table tbody tr:hover > td {
+  background: rgba(255, 255, 255, 0.025);
+}
+
+#app .v-dialog > .v-overlay__content > .v-card {
+  background: var(--studio-surface-1);
+  border: 1px solid var(--studio-hairline-strong);
+}
+
+#app .v-card-title {
+  color: var(--studio-ink);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+}
+
+#app .v-overlay__scrim {
+  background: #000;
+  opacity: 0.72;
+}
+
+#app .v-chip {
+  font-weight: 500;
+}
+
+.studio-page-header {
+  min-height: 52px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.studio-page-heading {
+  min-width: 0;
+}
+
+.studio-page-heading h1 {
+  margin: 0;
+  color: var(--studio-ink);
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.45px;
+}
+
+.studio-page-heading p {
+  margin: 6px 0 0;
+  color: var(--studio-ink-subtle);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.studio-page-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.annotation-active {
+  background: rgba(94, 106, 210, 0.14) !important;
+}
+
+/* Detection-service pages share one compact operational layout. */
+#app .ai-page {
+  background: var(--studio-canvas);
+}
+
+#app .ai-page .ai-page-content {
+  padding: 18px 20px 20px;
+  gap: 12px;
+}
+
+#app .ai-page .page-toolbar {
+  align-items: stretch;
+  flex-direction: column;
+  gap: 12px;
+}
+
+#app .ai-page .toolbar-title h2 {
+  color: var(--studio-ink);
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.35px;
+}
+
+#app .ai-page .toolbar-title span {
+  display: block;
+  margin-top: 4px;
+  color: var(--studio-ink-subtle);
+  font-size: 12px;
+}
+
+#app .ai-page .toolbar-actions {
+  width: 100%;
+  min-height: 50px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 8px;
+  background: var(--studio-surface-1);
+  border: 1px solid var(--studio-hairline);
+  border-radius: 10px;
+}
+
+#app .ai-page .toolbar-actions .v-input {
+  flex: 0 1 168px;
+}
+
+#app .ai-page .toolbar-actions .v-btn:last-child {
+  margin-left: auto;
+}
+
+#app .ai-page .table-panel {
+  background: var(--studio-surface-1);
+  border: 1px solid var(--studio-hairline);
+  border-radius: 10px;
+}
+
+#app .ai-page .ai-table tbody td {
+  height: 50px;
+  color: var(--studio-ink-muted);
+  font-size: 13px;
+}
+
+#app .ai-page .pagination-bar {
+  min-height: 44px;
+  display: grid;
+  place-items: center;
+  padding: 4px 10px;
+  background: var(--studio-surface-1);
+  border-top: 1px solid var(--studio-hairline);
+}
+
+#app .ai-page .model-uuid,
+#app .ai-page .combination-uuid {
+  display: inline-flex;
+  max-width: 100%;
+  padding: 0;
+  color: var(--studio-ink-tertiary);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  font-family: ui-monospace, 'SFMono-Regular', Consolas, monospace;
+  line-height: 1.35;
+}
+
+#app .ai-page .task-id {
+  display: inline-flex;
+  max-width: 100%;
+  padding: 2px 5px;
+  color: var(--studio-ink-subtle);
+  background: var(--studio-surface-2);
+  border: 1px solid var(--studio-hairline);
+  border-radius: 4px;
+  font-family: ui-monospace, 'SFMono-Regular', Consolas, monospace;
+  line-height: 1.35;
+}
+
+#app .ai-page .model-chips .v-chip {
+  background: var(--studio-surface-2);
+}
+
+#app .ai-page .json-preview {
+  padding: 12px;
+  color: var(--studio-ink-muted);
+  background: var(--studio-canvas);
+  border: 1px solid var(--studio-hairline);
+  border-radius: 8px;
+  font-family: ui-monospace, 'SFMono-Regular', Consolas, monospace;
+  line-height: 1.55;
+}
+
+#app .ai-page .v-expansion-panel {
+  background: var(--studio-surface-2);
+}
+
+#app .ai-page .empty-cell {
+  color: var(--studio-ink-tertiary);
+}
+
+@media (max-width: 840px) {
+  #app .ai-page .ai-page-content {
+    padding: 14px;
+  }
+
+  #app .ai-page .toolbar-actions .v-input {
+    flex: 1 1 min(100%, 180px);
+  }
+
+  #app .ai-page .toolbar-actions .v-btn:last-child {
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .studio-page-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .studio-page-actions {
+    justify-content: flex-start;
+  }
 }

@@ -1,7 +1,5 @@
 <template>
   <div class="ai-page">
-    <AiManagementNav />
-
     <div class="ai-page-content">
       <div class="page-toolbar">
         <div class="toolbar-title">
@@ -11,7 +9,8 @@
         <div class="toolbar-actions">
           <v-text-field
             v-model="projectNameFilter"
-            label="所属项目"
+            placeholder="所属项目"
+            aria-label="所属项目"
             clearable
             hide-details
             density="compact"
@@ -48,7 +47,9 @@
               <td>
                 <div class="font-weight-medium">{{ combination.name }}</div>
                 <div class="resource-id-row">
-                  <span class="combination-uuid">{{ combination.uuid }}</span>
+                  <span class="combination-uuid" :title="combination.uuid">
+                    {{ formatResourceId(combination.uuid) }}
+                  </span>
                   <v-tooltip text="复制 ID" location="top">
                     <template #activator="{ props }">
                       <v-btn
@@ -260,7 +261,6 @@ import {
   getAiModels,
   updateAiCombination,
 } from '@/api/services'
-import AiManagementNav from '@/components/ai/AiManagementNav.vue'
 import AppConfirmDialog from '@/components/common/AppConfirmDialog.vue'
 import AppSnackbar from '@/components/common/AppSnackbar.vue'
 import { copyText } from '@/composables/useClipboard'
@@ -357,6 +357,11 @@ const copyResourceId = async (id: string, label: string) => {
   } catch (error) {
     snackbar.showSnackbar(getErrorMessage(error, `${label} 复制失败`), 'error')
   }
+}
+
+const formatResourceId = (id: string): string => {
+  if (id.length <= 16) return id
+  return `${id.slice(0, 8)}…${id.slice(-5)}`
 }
 
 const getDetectionTypeLabel = (type: AiDetectionType) => {
@@ -623,15 +628,23 @@ onMounted(() => {
   align-items: center;
   gap: 2px;
   min-width: 0;
+  margin-top: 3px;
+  opacity: 0.72;
+  transition: opacity 0.15s ease;
+}
+
+.resource-id-row:hover {
+  opacity: 1;
 }
 
 .combination-uuid {
-  max-width: 180px;
+  max-width: 132px;
   overflow: hidden;
   color: rgba(var(--v-theme-on-surface), 0.55);
-  font-size: 11px;
+  font-size: 10px;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-family: ui-monospace, 'SFMono-Regular', Consolas, monospace;
 }
 
 .copy-id-button {
@@ -691,7 +704,9 @@ onMounted(() => {
 }
 
 .detail-model-table {
-  border: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border: 1px solid var(--studio-hairline);
+  border-radius: 8px;
+  overflow: hidden;
 }
 
 @media (max-width: 860px) {

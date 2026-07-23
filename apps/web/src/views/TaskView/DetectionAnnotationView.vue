@@ -147,10 +147,10 @@
           class="annotation-card mb-2"
           :style="{ borderLeftColor: getRectColor(rect), borderLeftWidth: '3px' }"
           @click="highlightAnnotation(rect)"
-          :class="{ 'bg-grey-lighten-4': activeAnnotation?.id === rect.id }"
+          :class="{ 'annotation-active': activeAnnotation?.id === rect.id }"
         >
-          <v-card-text class="pa-3">
-            <div class="d-flex justify-space-between align-center mb-1">
+          <v-card-text class="annotation-card-content">
+            <div class="annotation-card-heading">
               <div class="d-flex align-center ga-2">
                 <v-chip
                   size="x-small"
@@ -160,7 +160,7 @@
                 >
                   {{ getTypeLabel(rect.typeId) }}
                 </v-chip>
-                <span class="text-caption text-medium-emphasis">#{{ index + 1 }}</span>
+                <span class="annotation-index">#{{ index + 1 }}</span>
               </div>
               <v-btn
                 icon="mdi-close"
@@ -170,12 +170,17 @@
                 @click.stop="removeAnnotation(rect.id!)"
               />
             </div>
-            <div class="text-caption">
-              <div>位置：({{ formatRectValue(rect.x) }}, {{ formatRectValue(rect.y) }})</div>
-              <div>
-                尺寸：{{ formatRectValue(rect.width) }} x {{ formatRectValue(rect.height) }}
+            <div class="annotation-details">
+              <div class="annotation-detail-item">
+                <span>坐标</span>
+                <code>{{ formatRectValue(rect.x) }}, {{ formatRectValue(rect.y) }}</code>
               </div>
-              <div v-if="rect.label">标签：{{ rect.label }}</div>
+              <div class="annotation-detail-item">
+                <span>尺寸</span>
+                <code>
+                  {{ formatRectValue(rect.width) }} × {{ formatRectValue(rect.height) }}
+                </code>
+              </div>
             </div>
           </v-card-text>
         </v-card>
@@ -1033,10 +1038,57 @@ onUnmounted(() => {
 
 .annotation-card {
   cursor: pointer;
-  transition: transform 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease;
 }
 
-.annotation-card:hover {
-  transform: translateX(2px);
+.annotation-card-content {
+  padding: 10px 11px !important;
+}
+
+.annotation-card-heading {
+  min-height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.annotation-index {
+  color: var(--studio-ink-tertiary);
+  font-family: ui-monospace, 'SFMono-Regular', Consolas, monospace;
+  font-size: 11px;
+}
+
+.annotation-details {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.annotation-detail-item {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+  padding: 7px 8px;
+  background: var(--studio-canvas);
+  border: 1px solid var(--studio-hairline);
+  border-radius: 6px;
+}
+
+.annotation-detail-item span {
+  color: var(--studio-ink-tertiary);
+  font-size: 10px;
+}
+
+.annotation-detail-item code {
+  overflow: hidden;
+  color: var(--studio-ink-muted);
+  font-family: ui-monospace, 'SFMono-Regular', Consolas, monospace;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 </style>

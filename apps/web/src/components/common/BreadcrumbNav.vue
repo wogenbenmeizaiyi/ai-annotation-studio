@@ -1,5 +1,5 @@
 <template>
-  <header class="breadcrumb-bar">
+  <div class="breadcrumb-bar">
     <v-breadcrumbs :items="breadcrumbItems" density="compact" class="breadcrumb-nav">
       <template #item="{ item }">
         <v-breadcrumbs-item
@@ -16,7 +16,7 @@
         </v-breadcrumbs-item>
       </template>
     </v-breadcrumbs>
-  </header>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -61,20 +61,8 @@ const getTaskHref = (taskName: string, annotationType?: string): string => {
 const breadcrumbItems = computed<BreadcrumbNavItem[]>(() => {
   const path = route.path
 
-  if (path === '/' || path === '/center') {
+  if (path === '/' || path === '/task') {
     return [
-      {
-        title: '工作中心',
-        href: '/center',
-        prependIcon: 'mdi-view-dashboard-outline',
-        disabled: true,
-      },
-    ]
-  }
-
-  if (path === '/task') {
-    return [
-      { title: '工作中心', href: '/center', prependIcon: 'mdi-view-dashboard-outline' },
       { title: '标注任务', href: path, prependIcon: 'mdi-folder-outline', disabled: true },
     ]
   }
@@ -87,8 +75,6 @@ const breadcrumbItems = computed<BreadcrumbNavItem[]>(() => {
     }[path]
 
     return [
-      { title: '工作中心', href: '/center', prependIcon: 'mdi-view-dashboard-outline' },
-      { title: '检测服务管理', href: '/ai/recognition', prependIcon: 'mdi-radar' },
       {
         title: currentPage?.title ?? '检测服务管理',
         href: path,
@@ -108,7 +94,6 @@ const breadcrumbItems = computed<BreadcrumbNavItem[]>(() => {
 
     if (segments.length === 2) {
       return [
-        { title: '工作中心', href: '/center', prependIcon: 'mdi-view-dashboard-outline' },
         { title: '标注任务', href: '/task', prependIcon: 'mdi-folder-outline' },
         { title: taskName, href: getTaskHref(taskName), prependIcon: 'mdi-file-document-outline' },
       ]
@@ -116,7 +101,6 @@ const breadcrumbItems = computed<BreadcrumbNavItem[]>(() => {
 
     if (segments.length === 3 && segments[2] === 'train') {
       return [
-        { title: '工作中心', href: '/center', prependIcon: 'mdi-view-dashboard-outline' },
         { title: '标注任务', href: '/task', prependIcon: 'mdi-folder-outline' },
       ]
     }
@@ -129,7 +113,6 @@ const breadcrumbItems = computed<BreadcrumbNavItem[]>(() => {
       const displaySize = imageName.length > 20 ? `${imageName.slice(0, 20)}...` : imageName
 
       return [
-        { title: '工作中心', href: '/center', prependIcon: 'mdi-view-dashboard-outline' },
         { title: '标注任务', href: '/task', prependIcon: 'mdi-folder-outline' },
         {
           title: taskName,
@@ -162,12 +145,12 @@ const breadcrumbItems = computed<BreadcrumbNavItem[]>(() => {
 
 <style scoped>
 .breadcrumb-bar {
-  flex: 0 0 auto;
+  min-width: 0;
+  flex: 1;
   display: flex;
   align-items: center;
-  background: rgb(var(--v-theme-surface));
-  border-bottom: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
-  height: 34px;
+  height: 40px;
+  background: transparent;
 }
 
 .breadcrumb-nav {
@@ -175,9 +158,10 @@ const breadcrumbItems = computed<BreadcrumbNavItem[]>(() => {
   align-items: center;
   background: transparent;
   display: flex;
-  height: 34px;
-  min-height: 34px;
-  padding: 0 24px;
+  width: 100%;
+  height: 40px;
+  min-height: 40px;
+  padding: 0 16px;
   line-height: normal;
 }
 
@@ -198,6 +182,7 @@ const breadcrumbItems = computed<BreadcrumbNavItem[]>(() => {
   height: 100%;
   line-height: normal;
   text-decoration: none;
+  font-size: 12px;
 }
 
 .breadcrumb-link {
@@ -206,5 +191,20 @@ const breadcrumbItems = computed<BreadcrumbNavItem[]>(() => {
 
 .breadcrumb-link:hover {
   color: rgb(var(--v-theme-primary));
+}
+
+.breadcrumb-current {
+  color: var(--studio-ink-subtle);
+}
+
+@media (max-width: 640px) {
+  .breadcrumb-nav {
+    padding-inline: 8px;
+  }
+
+  .breadcrumb-nav :deep(.v-breadcrumbs-item:nth-of-type(n + 4)),
+  .breadcrumb-nav :deep(.v-breadcrumbs-divider:nth-of-type(n + 4)) {
+    display: none;
+  }
 }
 </style>

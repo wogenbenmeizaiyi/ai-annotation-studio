@@ -177,7 +177,7 @@
           class="annotation-card mb-2"
           :style="{ borderLeftColor: getPolygonColor(polygon), borderLeftWidth: '3px' }"
           @click="highlightAnnotation(polygon)"
-          :class="{ 'bg-grey-lighten-4': activeAnnotation?.id === polygon.id }"
+          :class="{ 'annotation-active': activeAnnotation?.id === polygon.id }"
         >
           <v-card-text class="pa-3">
             <div class="d-flex justify-space-between align-center mb-1">

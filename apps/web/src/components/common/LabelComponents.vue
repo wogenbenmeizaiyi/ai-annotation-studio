@@ -46,13 +46,29 @@
     </div>
   </div>
 
-  <div class="info">
-    <div>坐标: ({{ Math.round(x) }}, {{ Math.round(y) }})</div>
-    <div v-if="currentRect.width > 0">
-      当前框: {{ Math.round(currentRect.x) }}, {{ Math.round(currentRect.y) }},
-      {{ Math.round(currentRect.width) }}×{{ Math.round(currentRect.height) }}
+  <div class="info" aria-label="画布状态">
+    <div class="info-item">
+      <span class="info-label">鼠标坐标</span>
+      <span class="info-value">
+        <b>X</b> {{ Math.round(x) }}
+        <i />
+        <b>Y</b> {{ Math.round(y) }}
+      </span>
     </div>
-    <div>已标注: {{ props.rectangles?.length || 0 }} 个区域</div>
+    <div v-if="currentRect.width > 0" class="info-item current-rect-info">
+      <span class="info-label">当前框</span>
+      <span class="info-value">
+        {{ Math.round(currentRect.width) }} × {{ Math.round(currentRect.height) }}
+      </span>
+      <span class="info-position">
+        @ {{ Math.round(currentRect.x) }}, {{ Math.round(currentRect.y) }}
+      </span>
+    </div>
+    <div class="info-item annotation-total">
+      <span class="info-label">已标注</span>
+      <strong>{{ props.rectangles?.length || 0 }}</strong>
+      <span class="info-unit">个区域</span>
+    </div>
   </div>
 </template>
 
@@ -405,12 +421,97 @@ defineExpose({
 }
 
 .info {
-  margin-top: 10px;
-  font-family: monospace;
-  color: #666;
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin: 0;
+  padding: 0 12px;
+  color: var(--studio-ink-subtle);
+  background: rgba(15, 16, 17, 0.94);
+  border-top: 1px solid var(--studio-hairline);
+  backdrop-filter: blur(10px);
 }
 
-.info div {
-  margin-bottom: 4px;
+.info-item {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+}
+
+.info-item + .info-item {
+  margin-left: 14px;
+  padding-left: 14px;
+  border-left: 1px solid var(--studio-hairline);
+}
+
+.info-label {
+  color: var(--studio-ink-tertiary);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.info-value,
+.info-position {
+  color: var(--studio-ink-muted);
+  font-family: ui-monospace, 'SFMono-Regular', Consolas, monospace;
+  white-space: nowrap;
+}
+
+.info-value b {
+  color: var(--studio-ink-tertiary);
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.info-value i {
+  display: inline-block;
+  width: 1px;
+  height: 10px;
+  margin: 0 4px;
+  vertical-align: -1px;
+  background: var(--studio-hairline-strong);
+}
+
+.info-position {
+  color: var(--studio-ink-tertiary);
+}
+
+.annotation-total {
+  margin-left: auto !important;
+}
+
+.annotation-total strong {
+  min-width: 24px;
+  padding: 2px 7px;
+  color: var(--studio-ink);
+  background: rgba(94, 106, 210, 0.16);
+  border: 1px solid rgba(94, 106, 210, 0.28);
+  border-radius: 999px;
+  font-family: ui-monospace, 'SFMono-Regular', Consolas, monospace;
+  font-size: 11px;
+  text-align: center;
+}
+
+.info-unit {
+  color: var(--studio-ink-tertiary);
+  white-space: nowrap;
+}
+
+@media (max-width: 700px) {
+  .info {
+    flex-wrap: wrap;
+    gap: 6px 0;
+    padding-block: 7px;
+  }
+
+  .annotation-total {
+    width: auto;
+  }
 }
 </style>

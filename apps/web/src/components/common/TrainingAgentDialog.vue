@@ -3,13 +3,13 @@
     <v-card class="agent-dialog-card" rounded="lg">
       <v-card-title class="agent-dialog-title">
         <div>
-          <div class="text-h6">智能训练建议</div>
-          <div class="text-caption text-medium-emphasis">结合当前数据集和参数生成训练草案</div>
+          <div class="agent-dialog-heading">智能训练建议</div>
+          <div class="agent-dialog-subtitle">结合当前数据集和参数生成训练草案</div>
         </div>
         <v-btn icon="mdi-close" variant="text" size="small" @click="closeDialog" />
       </v-card-title>
 
-      <v-divider />
+      <div class="agent-dialog-separator" />
 
       <v-card-text class="agent-dialog-body pa-0">
         <aside class="agent-context-panel">
@@ -45,7 +45,11 @@
               <strong>{{ item.value }}</strong>
             </div>
 
-            <v-expansion-panels variant="accordion" density="compact" class="context-raw">
+            <v-expansion-panels
+              variant="accordion"
+              density="compact"
+              class="context-raw agent-expansion-panels"
+            >
               <v-expansion-panel title="查看完整画像">
                 <v-expansion-panel-text>
                   <pre>{{ formatJson(datasetContext) }}</pre>
@@ -55,7 +59,7 @@
           </div>
           <div v-else class="agent-empty-small">打开面板后会自动读取当前任务的数据集信息。</div>
 
-          <v-divider class="my-4" />
+          <div class="context-separator" />
 
           <div class="agent-section-title">训练目标</div>
           <v-textarea
@@ -71,7 +75,8 @@
               v-for="prompt in quickPrompts"
               :key="prompt"
               size="small"
-              variant="outlined"
+              variant="tonal"
+              class="quick-prompt-chip"
               @click="userMessage = prompt"
             >
               {{ prompt }}
@@ -130,7 +135,11 @@
               </table>
             </div>
 
-            <v-expansion-panels variant="accordion" density="compact">
+            <v-expansion-panels
+              variant="accordion"
+              density="compact"
+              class="agent-expansion-panels"
+            >
               <v-expansion-panel title="查看草案 JSON">
                 <v-expansion-panel-text>
                   <pre class="proposal-json">{{ formatJson(proposalConfig) }}</pre>
@@ -147,8 +156,6 @@
           </div>
         </main>
       </v-card-text>
-
-      <v-divider />
 
       <v-card-actions class="agent-dialog-actions">
         <v-btn variant="text" @click="closeDialog">关闭</v-btn>
@@ -403,6 +410,8 @@ watch(
   max-height: calc(100vh - 72px);
   flex-direction: column;
   overflow: hidden;
+  background: var(--studio-surface-1) !important;
+  border-radius: 10px !important;
 }
 
 .agent-dialog-title,
@@ -414,32 +423,59 @@ watch(
 }
 
 .agent-dialog-title {
+  min-height: 58px;
   flex: 0 0 auto;
-  padding: 16px 20px;
+  padding: 10px 14px 10px 16px;
+  background: var(--studio-surface-1);
+}
+
+.agent-dialog-heading {
+  color: var(--studio-ink);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.agent-dialog-subtitle {
+  margin-top: 2px;
+  color: var(--studio-ink-tertiary);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.3;
+}
+
+.agent-dialog-separator {
+  width: 100%;
+  height: 1px;
+  flex: 0 0 1px;
+  background: var(--studio-hairline);
 }
 
 .agent-dialog-body {
   display: grid;
   min-height: 0;
-  grid-template-columns: 340px minmax(0, 1fr);
+  grid-template-columns: 320px minmax(0, 1fr);
   overflow: hidden;
+  background: var(--studio-canvas);
 }
 
 .agent-context-panel,
 .agent-proposal-panel {
   min-height: 0;
-  padding: 20px;
+  padding: 18px;
   overflow-y: auto;
 }
 
 .agent-context-panel {
-  border-right: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-  background: rgba(var(--v-theme-surface-variant), 0.18);
+  border-right: 1px solid var(--studio-hairline);
+  background: var(--studio-surface-1);
 }
 
 .agent-section-title {
-  margin-bottom: 14px;
-  font-weight: 700;
+  margin-bottom: 12px;
+  color: var(--studio-ink-muted);
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .agent-loading,
@@ -448,7 +484,7 @@ watch(
   align-items: center;
   gap: 10px;
   min-height: 70px;
-  color: rgba(var(--v-theme-on-surface), 0.62);
+  color: var(--studio-ink-subtle);
   font-size: 13px;
 }
 
@@ -461,23 +497,25 @@ watch(
 .context-stat {
   display: flex;
   min-width: 0;
-  padding: 10px 6px;
+  padding: 9px 6px;
   flex-direction: column;
   align-items: center;
-  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border: 1px solid var(--studio-hairline);
   border-radius: 6px;
-  background: rgb(var(--v-theme-surface));
+  background: var(--studio-surface-2);
 }
 
 .context-stat span,
 .context-detail span {
-  color: rgba(var(--v-theme-on-surface), 0.58);
-  font-size: 12px;
+  color: var(--studio-ink-tertiary);
+  font-size: 11px;
 }
 
 .context-stat strong {
   margin-top: 3px;
-  font-size: 18px;
+  color: var(--studio-ink);
+  font-size: 16px;
+  font-weight: 600;
 }
 
 .context-detail {
@@ -487,6 +525,7 @@ watch(
 }
 
 .context-detail strong {
+  color: var(--studio-ink-muted);
   font-size: 13px;
   font-weight: 500;
   line-height: 1.5;
@@ -495,6 +534,17 @@ watch(
 
 .context-raw {
   margin-top: 12px;
+}
+
+.context-separator {
+  width: 100%;
+  height: 1px;
+  margin: 16px 0;
+  background: var(--studio-hairline);
+}
+
+.agent-context-panel :deep(.v-field) {
+  background: var(--studio-canvas);
 }
 
 .context-raw pre,
@@ -514,9 +564,21 @@ watch(
   flex-wrap: wrap;
 }
 
+.quick-prompt-chip {
+  color: var(--studio-ink-subtle) !important;
+  background: var(--studio-surface-2) !important;
+  border: 1px solid var(--studio-hairline);
+}
+
+.quick-prompt-chip:hover {
+  color: var(--studio-ink-muted) !important;
+  border-color: var(--studio-hairline-strong);
+}
+
 .agent-proposal-panel {
   display: flex;
   flex-direction: column;
+  background: var(--studio-canvas);
 }
 
 .agent-proposal-empty {
@@ -527,18 +589,30 @@ watch(
   align-items: center;
   justify-content: center;
   gap: 12px;
+  color: var(--studio-ink-subtle);
   text-align: center;
+}
+
+.agent-proposal-empty :deep(.v-icon) {
+  color: var(--studio-ink-tertiary) !important;
 }
 
 .proposal-content {
   display: grid;
-  gap: 16px;
+  gap: 14px;
+}
+
+.proposal-content :deep(.v-alert) {
+  color: var(--studio-ink-muted);
+  background: rgba(94, 106, 210, 0.08);
+  border: 1px solid rgba(94, 106, 210, 0.2);
 }
 
 .proposal-table-wrap {
   overflow: auto;
-  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border: 1px solid var(--studio-hairline);
   border-radius: 6px;
+  background: var(--studio-surface-1);
 }
 
 .proposal-table {
@@ -551,14 +625,20 @@ watch(
 .proposal-table th,
 .proposal-table td {
   padding: 10px 12px;
-  border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-bottom: 1px solid var(--studio-hairline);
   text-align: left;
   overflow-wrap: anywhere;
 }
 
 .proposal-table th {
-  background: rgba(var(--v-theme-surface-variant), 0.34);
-  font-weight: 600;
+  color: var(--studio-ink-subtle);
+  background: var(--studio-surface-2);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.proposal-table td {
+  color: var(--studio-ink-muted);
 }
 
 .proposal-table tr:last-child td {
@@ -571,8 +651,45 @@ watch(
 }
 
 .agent-dialog-actions {
+  min-height: 60px;
   flex: 0 0 auto;
-  padding: 14px 20px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--studio-hairline);
+  background: var(--studio-surface-1);
+}
+
+.agent-expansion-panels {
+  overflow: hidden;
+  border: 1px solid var(--studio-hairline);
+  border-radius: 7px;
+  box-shadow: none !important;
+}
+
+.agent-expansion-panels :deep(.v-expansion-panel) {
+  color: var(--studio-ink-muted);
+  background: var(--studio-surface-1);
+  box-shadow: none !important;
+}
+
+.agent-expansion-panels :deep(.v-expansion-panel-title) {
+  min-height: 44px;
+  padding: 0 12px;
+  color: var(--studio-ink-muted);
+  font-size: 12px;
+}
+
+.agent-expansion-panels :deep(.v-expansion-panel-title:hover),
+.agent-expansion-panels :deep(.v-expansion-panel-title--active) {
+  background: var(--studio-surface-2);
+}
+
+.agent-expansion-panels :deep(.v-expansion-panel-title__overlay) {
+  opacity: 0 !important;
+}
+
+.agent-expansion-panels :deep(.v-expansion-panel-text__wrapper) {
+  padding: 10px 12px;
+  background: rgba(0, 0, 0, 0.18);
 }
 
 @media (max-width: 760px) {
@@ -588,7 +705,7 @@ watch(
 
   .agent-context-panel {
     border-right: 0;
-    border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    border-bottom: 1px solid var(--studio-hairline);
   }
 }
 </style>

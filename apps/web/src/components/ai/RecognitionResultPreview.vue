@@ -228,7 +228,10 @@ onUnmounted(() => imageResizeObserver?.disconnect())
   min-height: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 260px;
-  background: rgb(var(--v-theme-surface));
+  background: var(--studio-surface-1);
+  border: 1px solid var(--studio-hairline);
+  border-radius: 8px;
+  overflow: hidden;
 }
 
 .preview-stage {
@@ -239,7 +242,7 @@ onUnmounted(() => imageResizeObserver?.disconnect())
   justify-content: center;
   padding: 20px;
   overflow: auto;
-  background: rgba(var(--v-theme-on-surface), 0.04);
+  background: var(--studio-canvas);
 }
 
 .image-canvas {
@@ -273,7 +276,8 @@ onUnmounted(() => imageResizeObserver?.disconnect())
   min-height: 0;
   padding: 16px;
   overflow-y: auto;
-  border-left: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
+  background: var(--studio-surface-1);
+  border-left: 1px solid var(--studio-hairline);
 }
 
 .summary-heading {
@@ -295,8 +299,9 @@ onUnmounted(() => imageResizeObserver?.disconnect())
   display: flex;
   gap: 9px;
   padding: 9px;
-  border: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
-  border-radius: 4px;
+  background: var(--studio-surface-2);
+  border: 1px solid var(--studio-hairline);
+  border-radius: 7px;
 }
 
 .annotation-color {

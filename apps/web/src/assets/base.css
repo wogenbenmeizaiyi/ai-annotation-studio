@@ -8,4 +8,6 @@ body,
 
 body {
   overflow: hidden;
+  color-scheme: dark;
+  background: #010102;
 }

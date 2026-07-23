@@ -276,12 +276,15 @@ const makeChartOption = (
   return {
     tooltip: {
       trigger: 'axis',
+      backgroundColor: 'rgba(15, 16, 17, 0.96)',
+      borderColor: '#34343a',
+      textStyle: { color: '#f7f8f8', fontSize: 12 },
       valueFormatter: (val: unknown) => (typeof val === 'number' ? val.toFixed(decimals) : '-'),
     },
     legend: {
       data: keys.map((k) => k.label),
       top: 0,
-      textStyle: { fontSize: 12 },
+      textStyle: { color: '#8a8f98', fontSize: 12 },
     },
     grid: {
       left: 60,
@@ -295,15 +298,31 @@ const makeChartOption = (
       name: 'Epoch',
       nameLocation: 'middle',
       nameGap: 25,
+      axisLine: { lineStyle: { color: '#34343a' } },
+      axisLabel: { color: '#8a8f98' },
+      nameTextStyle: { color: '#8a8f98', fontSize: 12 },
     },
     yAxis: {
       type: 'value',
       name: yName,
-      nameTextStyle: { fontSize: 12 },
+      nameTextStyle: { color: '#8a8f98', fontSize: 12 },
+      axisLine: { lineStyle: { color: '#34343a' } },
+      axisLabel: { color: '#8a8f98' },
+      splitLine: { lineStyle: { color: '#23252a' } },
     },
     dataZoom: [
       { type: 'inside', start: 0, end: 100 },
-      { type: 'slider', start: 0, end: 100, height: 20, bottom: 5 },
+      {
+        type: 'slider',
+        start: 0,
+        end: 100,
+        height: 20,
+        bottom: 5,
+        borderColor: '#34343a',
+        backgroundColor: '#0f1011',
+        fillerColor: 'rgba(94, 106, 210, 0.22)',
+        textStyle: { color: '#8a8f98' },
+      },
     ],
     series: series.map((s) => ({
       name: s.name,
@@ -601,6 +620,7 @@ onUnmounted(() => {
   height: 100%;
   min-height: 0;
   overflow: hidden;
+  background: var(--studio-surface-1);
 }
 
 .monitor-header {
@@ -618,7 +638,11 @@ onUnmounted(() => {
 .charts-section {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
+  gap: 12px;
+}
+
+.charts-section :deep(.v-card) {
+  background: var(--studio-surface-2);
 }
 
 .chart-header {

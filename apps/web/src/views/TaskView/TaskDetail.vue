@@ -21,8 +21,8 @@
         />
 
         <v-btn
-          color="success"
-          variant="flat"
+          color="secondary"
+          variant="tonal"
           size="small"
           prepend-icon="mdi-image-multiple"
           @click="selectFiles"
@@ -30,8 +30,8 @@
           选择图片
         </v-btn>
         <v-btn
-          color="success"
-          variant="flat"
+          color="secondary"
+          variant="tonal"
           size="small"
           prepend-icon="mdi-folder-open"
           @click="selectFolder"
@@ -39,7 +39,7 @@
           选择文件夹
         </v-btn>
         <v-btn
-          color="success"
+          color="primary"
           variant="flat"
           size="small"
           prepend-icon="mdi-pencil"
@@ -674,13 +674,16 @@ const onImageLoad = (item: ImageItem) => {
   display: flex;
   flex-direction: column;
   background: rgb(var(--v-theme-background));
+  gap: 12px;
+  padding: 14px;
 }
 
 .task-detail-top {
   flex: 0 0 auto;
   background: rgb(var(--v-theme-surface));
-  padding: 10px 16px;
-  border-bottom: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
+  padding: 10px 12px;
+  border: 1px solid var(--studio-hairline);
+  border-radius: 10px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -706,6 +709,8 @@ const onImageLoad = (item: ImageItem) => {
   min-height: 0;
   background: rgb(var(--v-theme-surface));
   overflow: hidden;
+  border: 1px solid var(--studio-hairline);
+  border-radius: 10px;
 }
 
 .table-wrapper {
@@ -800,7 +805,7 @@ const onImageLoad = (item: ImageItem) => {
 }
 
 .row-annotated {
-  background: rgba(var(--v-theme-success), 0.08);
+  background: rgba(var(--v-theme-success), 0.045);
 }
 
 .row-selected {
@@ -808,11 +813,7 @@ const onImageLoad = (item: ImageItem) => {
 }
 
 .row-selected.row-annotated {
-  background: linear-gradient(
-    90deg,
-    rgba(var(--v-theme-primary), 0.18),
-    rgba(var(--v-theme-success), 0.08)
-  ) !important;
+  background: rgba(var(--v-theme-primary), 0.17) !important;
 }
 
 .pagination-wrapper {

@@ -29,15 +29,18 @@ import AppSnackbar from '@/components/common/AppSnackbar.vue'
   display: flex;
   height: 100%;
   background: rgb(var(--v-theme-background));
+  gap: 10px;
+  padding: 10px;
 }
 
 .left-panel {
   flex: 3;
   display: flex;
   flex-direction: column;
-  padding: 16px;
+  padding: 12px;
   background: rgb(var(--v-theme-surface));
-  border-right: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border: 1px solid var(--studio-hairline);
+  border-radius: 10px;
 }
 
 .toolbar {
@@ -46,8 +49,8 @@ import AppSnackbar from '@/components/common/AppSnackbar.vue'
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
-  margin-bottom: 16px;
-  padding-bottom: 12px;
+  margin-bottom: 10px;
+  padding-bottom: 10px;
   border-bottom: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
 }
 
@@ -66,5 +69,26 @@ import AppSnackbar from '@/components/common/AppSnackbar.vue'
   display: flex;
   flex-direction: column;
   background: rgb(var(--v-theme-surface));
+  border: 1px solid var(--studio-hairline);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+@media (max-width: 900px) {
+  .annotation-container {
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  .left-panel {
+    min-height: 620px;
+  }
+
+  .right-panel {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+    min-height: 280px;
+  }
 }
 </style>

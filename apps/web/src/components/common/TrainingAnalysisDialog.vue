@@ -14,8 +14,6 @@
         </div>
       </v-card-title>
 
-      <v-divider />
-
       <v-card-text class="analysis-dialog-body">
         <div v-if="isLoading && !autoAnalysis" class="analysis-loading">
           <v-progress-circular indeterminate color="primary" size="34" />
@@ -150,8 +148,6 @@
           </template>
         </div>
       </v-card-text>
-
-      <v-divider />
 
       <v-card-actions class="analysis-dialog-actions">
         <v-btn variant="text" @click="dialogVisible = false">关闭</v-btn>
@@ -553,6 +549,8 @@ onUnmounted(clearRefreshTimer)
   max-height: calc(100vh - 80px);
   flex-direction: column;
   overflow: hidden;
+  background: var(--studio-surface-1) !important;
+  border-color: var(--studio-hairline) !important;
 }
 
 .analysis-dialog-title {
@@ -562,12 +560,15 @@ onUnmounted(clearRefreshTimer)
   justify-content: space-between;
   gap: 16px;
   padding: 16px 20px;
+  background: var(--studio-surface-1);
+  border-bottom: 1px solid var(--studio-hairline);
 }
 
 .analysis-dialog-body {
   min-height: 360px;
   overflow-y: auto;
-  padding: 20px;
+  padding: 18px 20px 20px;
+  background: var(--studio-canvas);
 }
 
 .analysis-loading {
@@ -582,7 +583,7 @@ onUnmounted(clearRefreshTimer)
 
 .analysis-content {
   display: grid;
-  gap: 18px;
+  gap: 14px;
 }
 
 .analysis-summary-grid {
@@ -596,10 +597,10 @@ onUnmounted(clearRefreshTimer)
 .analysis-extra,
 .analysis-optimization,
 .model-analysis-reply {
-  padding: 14px;
-  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-  border-radius: 8px;
-  background: rgba(var(--v-theme-surface-variant), 0.14);
+  padding: 16px;
+  border: 1px solid var(--studio-hairline);
+  border-radius: 9px;
+  background: var(--studio-surface-1);
 }
 
 .optimization-change-list {
@@ -622,7 +623,34 @@ onUnmounted(clearRefreshTimer)
 }
 
 .model-analysis-reply {
-  line-height: 1.65;
+  padding: 18px 20px;
+  background: var(--studio-surface-2);
+  line-height: 1.72;
+}
+
+.model-analysis-reply :deep(.markdown-text) {
+  gap: 10px;
+  color: var(--studio-ink-muted);
+  font-size: 13px;
+  line-height: 1.72;
+}
+
+.model-analysis-reply :deep(.markdown-heading) {
+  margin-top: 4px;
+  color: var(--studio-ink);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.model-analysis-reply :deep(.markdown-paragraph),
+.model-analysis-reply :deep(.markdown-list-item p) {
+  color: var(--studio-ink-muted);
+  font-weight: 400;
+}
+
+.model-analysis-reply :deep(strong) {
+  color: var(--studio-ink);
+  font-weight: 600;
 }
 
 .analysis-item-label {
@@ -642,7 +670,8 @@ onUnmounted(clearRefreshTimer)
   align-items: center;
   gap: 7px;
   margin-bottom: 12px;
-  font-weight: 700;
+  color: var(--studio-ink);
+  font-weight: 600;
 }
 
 .suggestion-row {
@@ -738,6 +767,8 @@ onUnmounted(clearRefreshTimer)
 .analysis-dialog-actions {
   flex: 0 0 auto;
   padding: 12px 20px;
+  background: var(--studio-surface-1);
+  border-top: 1px solid var(--studio-hairline);
 }
 
 @media (max-width: 620px) {

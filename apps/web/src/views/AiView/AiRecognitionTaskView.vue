@@ -1,7 +1,5 @@
 <template>
   <div class="ai-page">
-    <AiManagementNav />
-
     <div class="ai-page-content">
       <div class="page-toolbar">
         <div class="toolbar-title">
@@ -12,7 +10,8 @@
           <v-select
             v-model="statusFilter"
             :items="statusOptions"
-            label="任务状态"
+            placeholder="任务状态"
+            aria-label="任务状态"
             hide-details
             density="compact"
             variant="outlined"
@@ -22,7 +21,8 @@
           <v-select
             v-model="detectionTypeFilter"
             :items="detectionTypeOptions"
-            label="识别类型"
+            placeholder="识别类型"
+            aria-label="识别类型"
             hide-details
             density="compact"
             variant="outlined"
@@ -31,7 +31,8 @@
           />
           <v-text-field
             v-model="projectNameFilter"
-            label="所属项目"
+            placeholder="所属项目"
+            aria-label="所属项目"
             hide-details
             density="compact"
             variant="outlined"
@@ -39,26 +40,68 @@
             class="project-filter"
             @keyup.enter="applyTaskFilters"
           />
-          <v-text-field
-            v-model="createdAtStartFilter"
-            label="创建开始日期"
-            type="date"
-            hide-details
-            density="compact"
-            variant="outlined"
-            clearable
-            class="date-filter"
-          />
-          <v-text-field
-            v-model="createdAtEndFilter"
-            label="创建结束日期"
-            type="date"
-            hide-details
-            density="compact"
-            variant="outlined"
-            clearable
-            class="date-filter"
-          />
+          <div class="date-range-filter" role="group" aria-label="创建日期范围">
+            <span class="date-range-label">创建日期</span>
+            <v-menu
+              v-model="startDateMenuOpen"
+              :close-on-content-click="false"
+              location="bottom start"
+            >
+              <template #activator="{ props: activatorProps }">
+                <v-text-field
+                  v-bind="activatorProps"
+                  :model-value="createdAtStartFilter"
+                  placeholder="开始日期"
+                  aria-label="创建开始日期"
+                  append-inner-icon="mdi-calendar-blank-outline"
+                  hide-details
+                  density="compact"
+                  variant="outlined"
+                  clearable
+                  readonly
+                  class="date-filter"
+                  @click:clear.stop="clearStartDate"
+                />
+              </template>
+              <v-date-picker
+                v-model="startDateValue"
+                hide-header
+                show-adjacent-months
+                width="320"
+                @update:model-value="handleStartDateSelected"
+              />
+            </v-menu>
+            <span class="date-range-separator">至</span>
+            <v-menu
+              v-model="endDateMenuOpen"
+              :close-on-content-click="false"
+              location="bottom start"
+            >
+              <template #activator="{ props: activatorProps }">
+                <v-text-field
+                  v-bind="activatorProps"
+                  :model-value="createdAtEndFilter"
+                  placeholder="结束日期"
+                  aria-label="创建结束日期"
+                  append-inner-icon="mdi-calendar-blank-outline"
+                  hide-details
+                  density="compact"
+                  variant="outlined"
+                  clearable
+                  readonly
+                  class="date-filter"
+                  @click:clear.stop="clearEndDate"
+                />
+              </template>
+              <v-date-picker
+                v-model="endDateValue"
+                hide-header
+                show-adjacent-months
+                width="320"
+                @update:model-value="handleEndDateSelected"
+              />
+            </v-menu>
+          </div>
           <v-btn
             variant="tonal"
             prepend-icon="mdi-refresh"
@@ -236,7 +279,6 @@
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue'
 import { getRecognitionTaskResults, getRecognitionTasks } from '@/api/services'
-import AiManagementNav from '@/components/ai/AiManagementNav.vue'
 import RecognitionResultPreview from '@/components/ai/RecognitionResultPreview.vue'
 import AppSnackbar from '@/components/common/AppSnackbar.vue'
 import { useSnackbar } from '@/composables/useSnackbar'
@@ -257,6 +299,10 @@ const detectionTypeFilter = ref<AiDetectionType | null>(null)
 const projectNameFilter = ref<string | null>(null)
 const createdAtStartFilter = ref<string | null>(null)
 const createdAtEndFilter = ref<string | null>(null)
+const startDateMenuOpen = ref(false)
+const endDateMenuOpen = ref(false)
+const startDateValue = ref<unknown>(null)
+const endDateValue = ref<unknown>(null)
 const selectedTask = ref<RecognitionTask | null>(null)
 const selectedResult = ref<RecognitionResultItem | null>(null)
 const selectedResultJson = ref('')
@@ -320,6 +366,50 @@ const toIsoDateTime = (value: string | null, isEndOfDay = false) => {
   if (!value) return undefined
   const date = new Date(`${value}T${isEndOfDay ? '23:59:59.999' : '00:00:00'}`)
   return Number.isNaN(date.getTime()) ? undefined : date.toISOString()
+}
+
+const formatSelectedDate = (value: unknown): string | null => {
+  const selectedValue = Array.isArray(value) ? value[0] : value
+  if (!selectedValue) return null
+
+  if (typeof selectedValue === 'string') {
+    const datePart = selectedValue.match(/^\d{4}-\d{2}-\d{2}/)?.[0]
+    if (datePart) return datePart
+  }
+
+  const date = selectedValue instanceof Date ? selectedValue : new Date(String(selectedValue))
+  if (Number.isNaN(date.getTime())) return null
+
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+const handleStartDateSelected = (value: unknown) => {
+  const selectedDate = formatSelectedDate(value)
+  if (!selectedDate) return
+  createdAtStartFilter.value = selectedDate
+  startDateMenuOpen.value = false
+}
+
+const handleEndDateSelected = (value: unknown) => {
+  const selectedDate = formatSelectedDate(value)
+  if (!selectedDate) return
+  createdAtEndFilter.value = selectedDate
+  endDateMenuOpen.value = false
+}
+
+const clearStartDate = () => {
+  createdAtStartFilter.value = null
+  startDateValue.value = null
+  startDateMenuOpen.value = false
+}
+
+const clearEndDate = () => {
+  createdAtEndFilter.value = null
+  endDateValue.value = null
+  endDateMenuOpen.value = false
 }
 
 const applyTaskFilters = () => {
@@ -463,7 +553,25 @@ onMounted(() => {
 }
 
 .date-filter {
-  width: 168px;
+  width: 156px;
+}
+
+.date-range-filter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.date-range-label,
+.date-range-separator {
+  flex: 0 0 auto;
+  color: var(--studio-ink-subtle);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.date-range-filter :deep(.v-field) {
+  background: var(--studio-surface-1);
 }
 
 .table-panel {
@@ -650,6 +758,15 @@ onMounted(() => {
   }
 
   .status-filter {
+    flex: 1;
+  }
+
+  .date-range-filter {
+    width: 100%;
+  }
+
+  .date-filter {
+    min-width: 132px;
     flex: 1;
   }
 }

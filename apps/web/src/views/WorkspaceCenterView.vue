@@ -1,15 +1,14 @@
 <template>
   <main class="workspace-center">
     <section class="workspace-content">
-      <header class="workspace-header">
-        <h1>工作中心</h1>
-        <p>选择要进入的工作区</p>
-      </header>
+      <PageHeader title="工作中心" description="选择工作区，继续数据标注、模型训练或检测服务管理。" />
 
       <div class="workspace-options">
-        <v-card class="workspace-option" hover @click="goTo('taskList')">
+        <v-card class="workspace-option" hover variant="flat" @click="goTo('taskList')">
           <v-card-text>
-            <v-icon icon="mdi-folder-outline" color="primary" size="32" />
+            <div class="workspace-option-icon">
+              <v-icon icon="mdi-folder-outline" color="primary" size="24" />
+            </div>
             <h2>标注任务</h2>
             <p>管理数据集图片，完成检测与分割标注，并配置模型训练。</p>
           </v-card-text>
@@ -18,9 +17,11 @@
           </v-card-actions>
         </v-card>
 
-        <v-card class="workspace-option" hover @click="goTo('aiRecognition')">
+        <v-card class="workspace-option" hover variant="flat" @click="goTo('aiRecognition')">
           <v-card-text>
-            <v-icon icon="mdi-radar" color="secondary" size="32" />
+            <div class="workspace-option-icon">
+              <v-icon icon="mdi-radar" color="primary" size="24" />
+            </div>
             <h2>检测服务管理</h2>
             <p>查看识别任务，维护模型与提示词，并管理综合检测配置。</p>
           </v-card-text>
@@ -37,6 +38,7 @@
 
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
+import PageHeader from '@/components/common/PageHeader.vue'
 
 const router = useRouter()
 
@@ -54,35 +56,32 @@ const goTo = (name: 'taskList' | 'aiRecognition') => {
 }
 
 .workspace-content {
-  max-width: 880px;
+  max-width: 1040px;
   margin: 0 auto;
-  padding: 48px 24px;
-}
-
-.workspace-header h1 {
-  margin: 0;
-  color: rgb(var(--v-theme-on-background));
-  font-size: 24px;
-  font-weight: 600;
-}
-
-.workspace-header p {
-  margin: 8px 0 0;
-  color: rgba(var(--v-theme-on-background), 0.65);
+  padding: 36px 28px;
 }
 
 .workspace-options {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-  margin-top: 28px;
+  gap: 14px;
+  margin-top: 24px;
 }
 
 .workspace-option {
-  min-height: 220px;
+  min-height: 196px;
   display: flex;
   flex-direction: column;
   cursor: pointer;
+  transition:
+    transform 0.16s ease,
+    background-color 0.16s ease,
+    border-color 0.16s ease;
+}
+
+.workspace-option:hover {
+  background: var(--studio-surface-2);
+  transform: translateY(-1px);
 }
 
 .workspace-option :deep(.v-card-text) {
@@ -90,10 +89,20 @@ const goTo = (name: 'taskList' | 'aiRecognition') => {
 }
 
 .workspace-option h2 {
-  margin: 16px 0 8px;
+  margin: 14px 0 7px;
   color: rgb(var(--v-theme-on-surface));
   font-size: 18px;
   font-weight: 600;
+}
+
+.workspace-option-icon {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  background: rgba(var(--v-theme-primary), 0.12);
+  border: 1px solid rgba(var(--v-theme-primary), 0.2);
+  border-radius: 10px;
 }
 
 .workspace-option p {
@@ -105,7 +114,7 @@ const goTo = (name: 'taskList' | 'aiRecognition') => {
 
 @media (max-width: 640px) {
   .workspace-content {
-    padding: 28px 16px;
+    padding: 24px 16px;
   }
 
   .workspace-options {

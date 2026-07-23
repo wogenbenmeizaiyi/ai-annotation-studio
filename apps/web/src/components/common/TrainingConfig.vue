@@ -5,7 +5,10 @@
       <!-- 左侧：训练列表 -->
       <v-card class="train-sidebar" rounded="lg">
         <div class="d-flex align-center justify-space-between pa-4 sidebar-header">
-          <span class="text-subtitle-1 font-weight-bold">训练记录</span>
+          <div>
+            <div class="sidebar-title">训练记录</div>
+            <div class="sidebar-caption">选择记录查看训练详情</div>
+          </div>
           <v-btn
             color="primary"
             size="small"
@@ -16,7 +19,7 @@
           </v-btn>
         </div>
 
-        <v-divider />
+        <div class="sidebar-separator" />
 
         <!-- 加载中 -->
         <div v-if="isLoading" class="d-flex align-center justify-center pa-10 text-grey">
@@ -31,13 +34,15 @@
             :key="item.id"
             :active="selectedTrainId === item.id"
             rounded="lg"
-            class="mb-1"
+            color="primary"
+            class="train-history-item mb-1"
             @click="selectedTrainId = item.id"
           >
             <div class="d-flex align-center justify-space-between mb-1">
-              <span class="text-body-2 font-weight-bold text-truncate">{{ item.model_name }}</span>
+              <span class="train-model-name text-truncate">{{ item.model_name }}</span>
               <div class="d-flex align-center ga-1">
                 <v-icon
+                  class="train-status-dot"
                   icon="mdi-circle"
                   size="8"
                   :color="statusColorMap[item.status.toLowerCase()] || 'grey'"
@@ -63,7 +68,7 @@
                 />
               </div>
             </div>
-            <div class="d-flex ga-2 text-caption text-grey mb-1">
+            <div class="train-history-meta">
               <span>#{{ item.id }}</span>
               <span>{{ item.current_epoch }}/{{ item.total_epochs }} epoch</span>
             </div>
@@ -75,7 +80,7 @@
               rounded
               class="mb-1"
             />
-            <div class="text-caption text-grey-lighten-1">{{ formatTime(item.created_at) }}</div>
+            <div class="train-history-time">{{ formatTime(item.created_at) }}</div>
           </v-list-item>
         </v-list>
 
@@ -111,8 +116,11 @@
     <!-- 训练配置弹窗 -->
     <v-dialog v-model="showConfigDialog" max-width="1120" persistent>
       <v-card rounded="lg" class="train-config-dialog-card">
-        <v-card-title class="d-flex align-center justify-space-between">
-          <span>YOLO 训练配置</span>
+        <v-card-title class="train-config-dialog-header d-flex align-center justify-space-between">
+          <div>
+            <div class="dialog-title">YOLO 训练配置</div>
+            <div class="dialog-subtitle">选择本次训练需要提交的参数</div>
+          </div>
           <div class="d-flex align-center ga-2">
             <v-btn
               color="primary"
@@ -127,7 +135,7 @@
           </div>
         </v-card-title>
 
-        <v-divider />
+        <div class="train-dialog-separator" />
 
         <v-card-text class="train-config-dialog-body pa-0">
           <div class="config-builder">
@@ -246,7 +254,12 @@
                 </div>
               </div>
 
-              <v-expansion-panels multiple variant="accordion" density="compact">
+              <v-expansion-panels
+                multiple
+                variant="accordion"
+                density="compact"
+                class="param-library-panels"
+              >
                 <v-expansion-panel
                   v-for="group in parameterGroups"
                   :key="group.key"
@@ -285,8 +298,6 @@
             </div>
           </div>
         </v-card-text>
-
-        <v-divider />
 
         <v-card-actions class="train-config-dialog-actions pa-4">
           <v-text-field
@@ -1389,13 +1400,13 @@ onMounted(() => {
   box-sizing: border-box;
   height: 100%;
   min-height: 0;
-  padding: 16px 16px 20px;
+  padding: 12px 14px 14px;
   overflow: hidden;
 }
 
 .train-layout {
   display: flex;
-  gap: 16px;
+  gap: 12px;
   height: 100%;
   min-height: 0;
 }
@@ -1406,11 +1417,112 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  background: var(--studio-surface-1);
+}
+
+.sidebar-header {
+  min-height: 58px;
+  padding: 10px 12px !important;
+}
+
+.sidebar-title {
+  color: var(--studio-ink);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.sidebar-caption {
+  margin-top: 2px;
+  color: var(--studio-ink-tertiary);
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.sidebar-separator,
+.train-dialog-separator {
+  width: 100%;
+  height: 1px;
+  flex: 0 0 1px;
+  background: var(--studio-hairline);
 }
 
 .sidebar-list {
   flex: 1;
+  padding: 6px !important;
   overflow-y: auto;
+  background: transparent;
+}
+
+.train-history-item {
+  position: relative;
+  min-height: 72px;
+  padding: 8px 9px;
+  color: var(--studio-ink-muted) !important;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 7px !important;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.train-history-item:hover {
+  background: rgba(255, 255, 255, 0.025);
+  border-color: var(--studio-hairline);
+}
+
+.train-history-item.v-list-item--active {
+  background: rgba(94, 106, 210, 0.11);
+  border-color: rgba(94, 106, 210, 0.28);
+}
+
+.train-history-item.v-list-item--active::before {
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  left: -1px;
+  width: 2px;
+  border-radius: 0 2px 2px 0;
+  background: var(--studio-primary);
+  content: '';
+}
+
+.train-history-item :deep(.v-list-item__overlay) {
+  opacity: 0 !important;
+}
+
+.train-model-name {
+  min-width: 0;
+  color: var(--studio-ink);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.train-history-meta {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 4px;
+  color: var(--studio-ink-subtle);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.train-history-meta span + span::before {
+  margin-right: 8px;
+  color: var(--studio-hairline-strong);
+  content: '·';
+}
+
+.train-history-time {
+  color: var(--studio-ink-tertiary);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.train-status-dot {
+  opacity: 0.82;
 }
 
 .row-action-btn {
@@ -1418,7 +1530,8 @@ onMounted(() => {
   transition: opacity 0.15s;
 }
 
-.v-list-item:hover .row-action-btn {
+.train-history-item:hover .row-action-btn,
+.train-history-item:focus-within .row-action-btn {
   opacity: 1;
 }
 
@@ -1431,6 +1544,7 @@ onMounted(() => {
 
 .detail-empty {
   height: 100%;
+  background: var(--studio-surface-1);
 }
 
 .train-config-dialog-card {
@@ -1439,6 +1553,29 @@ onMounted(() => {
   max-height: calc(100vh - 96px);
   flex-direction: column;
   overflow: hidden;
+  background: var(--studio-surface-1) !important;
+  border-radius: 10px !important;
+}
+
+.train-config-dialog-header {
+  min-height: 58px;
+  padding: 10px 14px 10px 16px !important;
+  background: var(--studio-surface-1);
+}
+
+.dialog-title {
+  color: var(--studio-ink);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.dialog-subtitle {
+  margin-top: 2px;
+  color: var(--studio-ink-tertiary);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.3;
 }
 
 .train-config-dialog-body {
@@ -1446,28 +1583,43 @@ onMounted(() => {
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
+  background: var(--studio-canvas);
 }
 
 .train-config-dialog-actions {
+  min-height: 60px;
   flex: 0 0 auto;
-  border-top: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-  background: rgb(var(--v-theme-surface));
+  padding: 10px 14px !important;
+  border-top: 1px solid var(--studio-hairline);
+  background: var(--studio-surface-1);
 }
 
 .priority-field {
   max-width: 150px;
 }
 
+.priority-field :deep(.v-field) {
+  background: var(--studio-canvas);
+}
+
 .config-builder {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 360px;
+  grid-template-columns: minmax(0, 1fr) 340px;
   min-height: 100%;
   align-items: start;
 }
 
 .selected-params {
   min-width: 0;
-  padding: 20px;
+  padding: 18px;
+}
+
+.selected-params :deep(.v-row) {
+  margin: -6px;
+}
+
+.selected-params :deep(.v-col) {
+  padding: 6px;
 }
 
 .param-library {
@@ -1475,10 +1627,10 @@ onMounted(() => {
   top: 0;
   min-width: 0;
   max-height: calc(100vh - 178px);
-  padding: 18px 16px;
+  padding: 16px 14px;
   overflow-y: auto;
-  border-left: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-  background: rgba(var(--v-theme-surface-variant), 0.22);
+  border-left: 1px solid var(--studio-hairline);
+  background: var(--studio-surface-1);
 }
 
 .config-section-header {
@@ -1486,15 +1638,27 @@ onMounted(() => {
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
 }
 
 .param-field {
   height: 100%;
-  padding: 12px;
-  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  padding: 11px;
+  border: 1px solid var(--studio-hairline);
   border-radius: 8px;
-  background: rgb(var(--v-theme-surface));
+  background: var(--studio-surface-1);
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.param-field:hover {
+  background: var(--studio-surface-2);
+  border-color: var(--studio-hairline-strong);
+}
+
+.param-field:focus-within {
+  border-color: rgba(94, 106, 210, 0.48);
 }
 
 .param-field-title {
@@ -1502,23 +1666,29 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
+  color: var(--studio-ink-muted);
+  font-size: 13px;
   font-weight: 600;
 }
 
+.param-field :deep(.v-field) {
+  background: var(--studio-canvas);
+}
+
 .param-help {
-  margin-top: 8px;
-  color: rgba(var(--v-theme-on-surface), 0.62);
-  font-size: 12px;
+  margin-top: 7px;
+  color: var(--studio-ink-tertiary);
+  font-size: 11px;
   line-height: 1.4;
 }
 
 .json-config-panel {
   margin-top: 18px;
   padding: 14px;
-  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border: 1px solid var(--studio-hairline);
   border-radius: 8px;
-  background: rgba(var(--v-theme-surface-variant), 0.16);
+  background: var(--studio-surface-1);
 }
 
 .json-header {
@@ -1531,6 +1701,10 @@ onMounted(() => {
     monospace;
   font-size: 12px;
   line-height: 1.45;
+}
+
+.json-config-editor :deep(.v-field) {
+  background: var(--studio-canvas);
 }
 
 .json-error {
@@ -1553,10 +1727,53 @@ onMounted(() => {
 }
 
 .param-option-desc {
-  color: rgba(var(--v-theme-on-surface), 0.56);
+  color: var(--studio-ink-tertiary);
   font-size: 12px;
   line-height: 1.35;
   white-space: normal;
+}
+
+.param-library-panels {
+  overflow: hidden;
+  border: 1px solid var(--studio-hairline);
+  border-radius: 8px;
+  box-shadow: none !important;
+}
+
+.param-library-panels :deep(.v-expansion-panel) {
+  color: var(--studio-ink-muted);
+  background: transparent;
+  box-shadow: none !important;
+}
+
+.param-library-panels :deep(.v-expansion-panel::after) {
+  border-color: var(--studio-hairline);
+}
+
+.param-library-panels :deep(.v-expansion-panel-title) {
+  min-height: 48px;
+  padding: 0 12px;
+  color: var(--studio-ink-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.param-library-panels :deep(.v-expansion-panel-title:hover),
+.param-library-panels :deep(.v-expansion-panel-title--active) {
+  background: var(--studio-surface-2);
+}
+
+.param-library-panels :deep(.v-expansion-panel-title__overlay) {
+  opacity: 0 !important;
+}
+
+.param-library-panels :deep(.v-expansion-panel-text__wrapper) {
+  padding: 6px 10px 10px;
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.param-library-panels :deep(.v-selection-control) {
+  min-height: 38px;
 }
 
 @media (max-width: 900px) {
