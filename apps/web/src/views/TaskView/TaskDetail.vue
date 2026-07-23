@@ -563,27 +563,63 @@ const onFileSelect = (e: Event) => {
   }
 }
 
-const BATCH_SIZE = 50
+const MAX_BATCH_FILES = 20
+const MAX_BATCH_BYTES = 80 * 1024 * 1024
+
+const createUploadBatches = (selectedFiles: File[]) => {
+  const batches: File[][] = []
+  let currentBatch: File[] = []
+  let currentBytes = 0
+
+  selectedFiles.forEach((file) => {
+    const exceedsFileCount = currentBatch.length >= MAX_BATCH_FILES
+    const exceedsByteLimit =
+      currentBatch.length > 0 && currentBytes + file.size > MAX_BATCH_BYTES
+
+    if (exceedsFileCount || exceedsByteLimit) {
+      batches.push(currentBatch)
+      currentBatch = []
+      currentBytes = 0
+    }
+
+    currentBatch.push(file)
+    currentBytes += file.size
+  })
+
+  if (currentBatch.length > 0) {
+    batches.push(currentBatch)
+  }
+
+  return batches
+}
+
+const formatUploadSize = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(1)} MiB`
 
 const confirmUpload = async () => {
   if (!files.value.length) return
   uploading.value = true
   uploadProgress.value = { done: 0, total: files.value.length }
-  console.log(`[上传] 开始上传，共 ${files.value.length} 张图片，每批 ${BATCH_SIZE} 张`)
+  const batches = createUploadBatches(files.value)
+  console.log(
+    `[上传] 开始上传，共 ${files.value.length} 张图片，拆分为 ${batches.length} 批`,
+  )
 
   let failedCount = 0
-  for (let i = 0; i < files.value.length; i += BATCH_SIZE) {
-    const batch = files.value.slice(i, i + BATCH_SIZE)
-    const batchNum = Math.floor(i / BATCH_SIZE) + 1
-    const totalBatches = Math.ceil(files.value.length / BATCH_SIZE)
-    console.log(`[上传] 第 ${batchNum}/${totalBatches} 批，${batch.length} 张`)
+  let completedCount = 0
+  for (const [batchIndex, batch] of batches.entries()) {
+    const batchNum = batchIndex + 1
+    const batchBytes = batch.reduce((total, file) => total + file.size, 0)
+    console.log(
+      `[上传] 第 ${batchNum}/${batches.length} 批，${batch.length} 张，${formatUploadSize(batchBytes)}`,
+    )
     try {
       await uploadImages(taskName.value, batch)
     } catch (error) {
       failedCount++
       console.error(`[上传] 第 ${batchNum} 批上传失败:`, error)
     }
-    uploadProgress.value.done = Math.min(i + BATCH_SIZE, files.value.length)
+    completedCount += batch.length
+    uploadProgress.value.done = completedCount
   }
 
   uploading.value = false
