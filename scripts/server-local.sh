@@ -344,7 +344,6 @@ configure_gpu_mode() {
 compose() {
     local arguments=(
         compose
-        --project-directory "$repo_root"
         --env-file "$env_file"
         -f "$compose_file"
     )
