@@ -16,12 +16,16 @@ class S3Client:
         return cls._instance
 
     def _initialize_client(self):
+        client_config = Config(
+            signature_version=settings.S3_SIGNATURE_VERSION,
+            s3={"addressing_style": "path"},
+        )
         self._s3_client = boto3.client(
             "s3",
             endpoint_url=settings.S3_ENDPOINT,
             aws_access_key_id=settings.S3_ACCESS_KEY,
             aws_secret_access_key=settings.S3_SECRET_KEY,
-            config=Config(signature_version=settings.S3_SIGNATURE_VERSION),
+            config=client_config,
             region_name=settings.S3_REGION,
         )
         self._presign_client = boto3.client(
@@ -29,7 +33,7 @@ class S3Client:
             endpoint_url=settings.S3_PUBLIC_ENDPOINT,
             aws_access_key_id=settings.S3_ACCESS_KEY,
             aws_secret_access_key=settings.S3_SECRET_KEY,
-            config=Config(signature_version=settings.S3_SIGNATURE_VERSION),
+            config=client_config,
             region_name=settings.S3_REGION,
         )
         print("S3/RustFS 客户端已初始化")

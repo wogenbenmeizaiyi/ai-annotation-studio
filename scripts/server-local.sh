@@ -10,6 +10,7 @@ gpu_compose_file="$repo_root/infra/server/compose.gpu.yml"
 action="up"
 env_file="$repo_root/.local/server.env"
 origin_override=""
+domain_override=""
 tag_override=""
 gpu_mode="auto"
 skip_build=false
@@ -20,7 +21,7 @@ usage() {
 在一台 Linux 服务器上构建并运行完整的 AI Annotation Studio。
 
 用法：
-  ./scripts/server-local.sh <操作> [选项]
+  bash scripts/server-local.sh <操作> [选项]
 
 操作：
   init          生成独立部署环境文件，不启动容器
@@ -36,6 +37,7 @@ usage() {
 
 选项：
   --origin <url>      浏览器访问地址，例如 http://192.168.1.20:7280
+  --domain <domain>   启用 Caddy 自动 HTTPS，例如 wexura.cn
   --tag <tag>         本机构建的业务镜像标签，默认读取环境文件
   --env-file <path>   指定部署环境文件，默认 .local/server.env
   --gpu               强制启用 NVIDIA GPU Compose 配置
@@ -45,8 +47,8 @@ usage() {
   -h, --help          显示帮助
 
 首次启动：
-  ./scripts/server-local.sh up --origin http://服务器IP:7280
-  ./scripts/server-local.sh create-admin
+  bash scripts/server-local.sh up --origin http://服务器IP:7280
+  bash scripts/server-local.sh create-admin
 EOF
 }
 
@@ -70,6 +72,11 @@ while (($# > 0)); do
         --origin)
             require_value "$1" "${2:-}"
             origin_override="$2"
+            shift 2
+            ;;
+        --domain)
+            require_value "$1" "${2:-}"
+            domain_override="$2"
             shift 2
             ;;
         --tag)
@@ -109,6 +116,19 @@ while (($# > 0)); do
             ;;
     esac
 done
+
+if [[ -n "$domain_override" && -n "$origin_override" ]]; then
+    echo "--domain 和 --origin 不能同时使用。" >&2
+    exit 2
+fi
+
+if [[ -n "$domain_override" ]]; then
+    domain_override="${domain_override,,}"
+    if [[ ! "$domain_override" =~ ^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$ ]]; then
+        echo "无效域名：$domain_override" >&2
+        exit 2
+    fi
+fi
 
 case "$action" in
     init|build|up|restart|down|status|logs|create-admin|config|reset) ;;
@@ -151,7 +171,22 @@ initialize_environment() {
     local public_origin="${origin_override:-$(detect_default_origin)}"
     local public_host
     local cookie_secure=false
+    local public_domain=""
+    local web_bind_address="0.0.0.0"
+    local s3_bind_address="0.0.0.0"
+    local s3_public_endpoint
+    if [[ -n "$domain_override" ]]; then
+        public_domain="$domain_override"
+        public_origin="https://$domain_override"
+        web_bind_address="127.0.0.1"
+        s3_bind_address="127.0.0.1"
+    fi
     public_host="$(origin_host "$public_origin")"
+    if [[ -n "$public_domain" ]]; then
+        s3_public_endpoint="$public_origin"
+    else
+        s3_public_endpoint="http://$public_host:19000"
+    fi
     if [[ "$public_origin" == https://* ]]; then
         cookie_secure=true
     fi
@@ -161,14 +196,17 @@ initialize_environment() {
 # 由 scripts/server-local.sh 生成。包含真实凭据，不要提交到 Git。
 BUSINESS_IMAGE_TAG=${tag_override:-local}
 
+PUBLIC_DOMAIN=$public_domain
 PUBLIC_ORIGIN=$public_origin
 AUTH_ALLOWED_ORIGINS=$public_origin,http://localhost:7280,http://127.0.0.1:7280
 AUTH_COOKIE_SECURE=$cookie_secure
-S3_PUBLIC_ENDPOINT=http://$public_host:19000
+S3_PUBLIC_ENDPOINT=$s3_public_endpoint
 
 WEB_PORT=7280
 S3_PORT=19000
 INFRA_BIND_ADDRESS=127.0.0.1
+WEB_BIND_ADDRESS=$web_bind_address
+S3_BIND_ADDRESS=$s3_bind_address
 POSTGRES_PORT=15432
 RABBITMQ_PORT=15673
 RABBITMQ_MANAGEMENT_PORT=15674
@@ -221,6 +259,16 @@ EOF
 read_env_value() {
     local key="$1"
     sed -n "s/^${key}=//p" "$env_file" | tail -n 1
+}
+
+write_env_value() {
+    local key="$1"
+    local value="$2"
+    if grep -q "^${key}=" "$env_file"; then
+        sed -i "s|^${key}=.*|${key}=${value}|" "$env_file"
+    else
+        printf '\n%s=%s\n' "$key" "$value" >>"$env_file"
+    fi
 }
 
 require_docker() {
@@ -318,6 +366,7 @@ build_business_images() {
 }
 
 gpu_enabled=false
+domain_enabled=false
 configure_gpu_mode() {
     case "$gpu_mode" in
         gpu)
@@ -350,6 +399,9 @@ compose() {
     if [[ "$gpu_enabled" == true ]]; then
         arguments+=(-f "$gpu_compose_file")
     fi
+    if [[ "$domain_enabled" == true ]]; then
+        arguments+=(--profile proxy)
+    fi
     docker "${arguments[@]}" "$@"
 }
 
@@ -365,25 +417,43 @@ prepare_runtime_directories() {
 
 initialize_environment
 
+if [[ -n "$domain_override" ]]; then
+    domain_origin="https://$domain_override"
+    write_env_value PUBLIC_DOMAIN "$domain_override"
+    write_env_value PUBLIC_ORIGIN "$domain_origin"
+    write_env_value AUTH_ALLOWED_ORIGINS "$domain_origin"
+    write_env_value AUTH_COOKIE_SECURE true
+    write_env_value S3_PUBLIC_ENDPOINT "$domain_origin"
+    write_env_value WEB_BIND_ADDRESS 127.0.0.1
+    write_env_value S3_BIND_ADDRESS 127.0.0.1
+elif [[ -n "$origin_override" ]]; then
+    public_host="$(origin_host "$origin_override")"
+    cookie_secure=false
+    if [[ "$origin_override" == https://* ]]; then
+        cookie_secure=true
+    fi
+    write_env_value PUBLIC_DOMAIN ""
+    write_env_value PUBLIC_ORIGIN "$origin_override"
+    write_env_value AUTH_ALLOWED_ORIGINS "$origin_override,http://localhost:7280,http://127.0.0.1:7280"
+    write_env_value AUTH_COOKIE_SECURE "$cookie_secure"
+    write_env_value S3_PUBLIC_ENDPOINT "http://$public_host:19000"
+    write_env_value WEB_BIND_ADDRESS 0.0.0.0
+    write_env_value S3_BIND_ADDRESS 0.0.0.0
+fi
+
+if [[ -n "$(read_env_value PUBLIC_DOMAIN)" ]]; then
+    domain_enabled=true
+fi
+
 if [[ "$action" == "init" ]]; then
     echo "请检查配置后启动："
     echo "  $env_file"
-    echo "  ./scripts/server-local.sh up"
+    echo "  bash scripts/server-local.sh up"
     exit 0
 fi
 
 require_docker
 configure_gpu_mode
-
-if [[ -n "$origin_override" ]]; then
-    public_host="$(origin_host "$origin_override")"
-    export PUBLIC_ORIGIN="$origin_override"
-    export AUTH_ALLOWED_ORIGINS="$origin_override,http://localhost:7280,http://127.0.0.1:7280"
-    export S3_PUBLIC_ENDPOINT="http://$public_host:19000"
-    if [[ "$origin_override" == https://* ]]; then
-        export AUTH_COOKIE_SECURE=true
-    fi
-fi
 
 image_tag="${tag_override:-$(read_env_value BUSINESS_IMAGE_TAG)}"
 image_tag="${image_tag:-local}"
@@ -405,7 +475,7 @@ case "$action" in
         echo
         echo "平台地址：${origin_override:-$(read_env_value PUBLIC_ORIGIN)}"
         echo "首次运行后创建超级管理员："
-        echo "  ./scripts/server-local.sh create-admin"
+        echo "  bash scripts/server-local.sh create-admin"
         ;;
     restart)
         prepare_runtime_directories
@@ -433,7 +503,7 @@ case "$action" in
     reset)
         if [[ "$confirm_reset" != true ]]; then
             echo "reset 会删除这个独立部署的 PostgreSQL、RabbitMQ、Redis、MinIO 和认证密钥卷。" >&2
-            echo "确认清空时执行：./scripts/server-local.sh reset --yes" >&2
+            echo "确认清空时执行：bash scripts/server-local.sh reset --yes" >&2
             exit 1
         fi
         compose down --volumes --remove-orphans

@@ -428,7 +428,7 @@ git clone git@github.com:wogenbenmeizaiyi/ai-annotation-studio.git
 cd ai-annotation-studio
 chmod +x scripts/server-local.sh scripts/export-images.sh
 
-./scripts/server-local.sh up --origin http://服务器IP:7280
+bash scripts/server-local.sh up --origin http://服务器IP:7280
 ```
 
 首次运行会：
@@ -447,27 +447,27 @@ chmod +x scripts/server-local.sh scripts/export-images.sh
 首次启动成功后创建平台超级管理员：
 
 ```bash
-./scripts/server-local.sh create-admin
+bash scripts/server-local.sh create-admin
 ```
 
 常用操作：
 
 ```bash
 # 查看状态和日志
-./scripts/server-local.sh status
-./scripts/server-local.sh logs
+bash scripts/server-local.sh status
+bash scripts/server-local.sh logs
 
 # git pull 后重新按当前源码构建并更新容器
-./scripts/server-local.sh up
+bash scripts/server-local.sh up
 
 # 镜像已经构建好时跳过构建
-./scripts/server-local.sh up --no-build
+bash scripts/server-local.sh up --no-build
 
 # 停止但保留所有数据
-./scripts/server-local.sh down
+bash scripts/server-local.sh down
 
 # 确认删除这套新部署的所有命名卷
-./scripts/server-local.sh reset --yes
+bash scripts/server-local.sh reset --yes
 ```
 
 脚本默认自动检测 NVIDIA Container Runtime；检测到时为标注 API、识别 API 和 Worker
@@ -478,11 +478,26 @@ services/annotation/models/
 services/recognition/models/
 ```
 
-默认只有 Web `7280` 和用于预签名对象地址的 MinIO API `19000` 对外监听。PostgreSQL、
+不使用域名时，Web `7280` 和预签名对象使用的 MinIO API `19000` 对外监听。PostgreSQL、
 RabbitMQ、Redis 和 MinIO 控制台只绑定服务器的 `127.0.0.1`。浏览器、标注 API、认证 API、
 公开检测 API 和 SAM3 WebSocket 都通过 Web/Nginx 同一入口访问。
 
-部署配置保存在 Git 忽略的 `.local/server.env`。要填写 Qwen Key、修改端口或切换 HTTPS，
-编辑这个文件后重新执行 `./scripts/server-local.sh up`。正式 HTTPS 场景还需要在外层反向
-代理配置证书，并把 `PUBLIC_ORIGIN`、`AUTH_ALLOWED_ORIGINS`、`AUTH_COOKIE_SECURE` 和
-`S3_PUBLIC_ENDPOINT` 改成浏览器实际可访问的地址。
+### 使用域名和自动 HTTPS
+
+先把域名的 DNS `A` 记录指向服务器公网 IP，并在安全组和系统防火墙开放 TCP `80`、`443`；
+如需 HTTP/3，再开放 UDP `443`。随后执行：
+
+```bash
+bash scripts/server-local.sh up --no-build --cpu --domain wexura.cn
+```
+
+脚本会把域名配置保存到 Git 忽略的 `.local/server.env`，启用 Caddy 并自动申请 HTTPS
+证书。域名模式下，Caddy 只连接 Web 容器；Web、MinIO API 和 MinIO 控制台的调试端口都只
+绑定服务器 `127.0.0.1`，不对公网开放。
+
+网页展示私有图片仍需要短时预签名 URL。它使用同一个平台域名下的 `/ai-cmm/*` 路径，
+由 Web Nginx 在 Docker 内网转发到 MinIO；这不会公开 MinIO 管理界面、凭据或任意对象，
+没有有效签名的请求仍会被 MinIO 拒绝。无需为 MinIO 配置额外域名或 DNS 记录。
+
+部署配置保存在 `.local/server.env`。要填写 Qwen Key 或修改端口，编辑这个文件后重新执行
+`bash scripts/server-local.sh up`。
