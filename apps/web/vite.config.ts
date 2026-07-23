@@ -13,6 +13,7 @@ export default defineConfig(({ command, mode }) => {
     env.VITE_ANNOTATION_PROXY_TARGET || 'http://127.0.0.1:8811'
   const recognitionProxyTarget =
     env.VITE_RECOGNITION_PROXY_TARGET || 'http://127.0.0.1:7987'
+  const authProxyTarget = env.VITE_AUTH_PROXY_TARGET || 'http://127.0.0.1:8787'
   const sam3ProxyTarget = env.VITE_SAM3_PROXY_TARGET || 'ws://127.0.0.1:8811'
 
   return {
@@ -22,6 +23,10 @@ export default defineConfig(({ command, mode }) => {
       host: true,
       port: 5173,
       proxy: {
+        '/api/auth': {
+          target: authProxyTarget,
+          changeOrigin: true,
+        },
         '/api/annotation': {
           target: annotationProxyTarget,
           changeOrigin: true,

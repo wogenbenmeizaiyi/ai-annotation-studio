@@ -17,8 +17,8 @@ cd D:\project\ai\ai-annotation-studio
 .\scripts\dev.ps1 -Profile full -Infra local
 ```
 
-脚本会自动生成凭据，启动 PostgreSQL、RabbitMQ、Redis、MinIO，创建两个数据库和
-`ai-cmm` bucket，执行迁移，然后原生启动前端、两个 API、Worker 和 Consumer。
+脚本会自动生成凭据，启动 PostgreSQL、RabbitMQ、Redis、MinIO，创建三个数据库和
+`ai-cmm` bucket，执行迁移，然后原生启动前端、认证 API、两个业务 API、Worker 和 Consumer。
 
 这种模式下普通任务、标注和识别接口可以运行，但需要第三方大模型 Key 的 AI 训练分析和
 Qwen 多模态功能不可用。
@@ -67,36 +67,52 @@ QWEN_API_KEY=你的_qwen_key
 | 功能 | 地址 |
 | --- | --- |
 | Web | `http://127.0.0.1:5173` |
+| 认证 API 文档 | `http://127.0.0.1:8787/docs` |
 | 标注 API 文档 | `http://127.0.0.1:8811/docs` |
 | 识别 API 文档 | `http://127.0.0.1:7987/docs` |
 | RabbitMQ 管理界面 | `http://127.0.0.1:15674` |
 | MinIO 管理界面 | `http://127.0.0.1:19001` |
 
+### 首次创建超级管理员
+
+首次启动的认证数据库没有默认账号。保持 `dev.ps1` 运行，另开一个 PowerShell，在仓库根目录执行：
+
+```powershell
+$env:APP_ENV_FILE = (Resolve-Path .local\env\auth.env).Path
+cd services\auth
+uv run python -m scripts.create_super_admin
+```
+
+按提示输入用户名、显示名称和至少 12 位的密码，然后访问 `http://127.0.0.1:5173` 登录。
+普通用户可在登录页申请注册，账号初始状态为“待审批”；超级管理员登录后从侧栏进入
+“用户管理”批准账号。管理员重置密码后，用户下次登录必须先修改密码。
+
 RabbitMQ、MinIO 等本地登录凭据保存在 `.local/infra.env`。首次启动时 Torch/Ultralytics
-加载可能较慢；如果页面暂时出现 500，请等两个 API 日志出现
+加载可能较慢；如果页面暂时出现 500，请等三个 API 日志出现
 `Application startup complete` 后刷新。
 
 ## `.env` 必填与可选参数
 
-两个 Python 服务各自读取自己的 `.env`，不读取根目录 `.env`。本地模式下各类参数的
+三个 Python 服务各自读取自己的 `.env`，不读取根目录 `.env`。本地模式下各类参数的
 填写要求如下：
 
 | 参数类别 | 是否需要填写 | 说明 |
 | --- | --- | --- |
 | `AGENT_API_KEY` | 使用标注服务 AI 训练分析时必填 | `AGENT_MODEL` 和 `AGENT_BASE_URL` 有默认值 |
 | `QWEN_API_KEY` | 使用识别服务 Qwen 多模态识别时必填 | 可以和 `AGENT_API_KEY` 使用同一把 Key |
-| `POSTGRES_*` | 不需要 | 脚本生成连接，并固定使用两个不同数据库 |
+| `POSTGRES_*` | 不需要 | 脚本生成连接，并固定使用三个不同数据库 |
 | `RABBITMQ_HOST/PORT/USER/PASS/VHOST` | 不需要 | 脚本连接本地 RabbitMQ 并生成凭据 |
 | `REDIS_*` | 不需要 | 脚本连接本地 Redis 并生成密码 |
 | `S3_*` | 不需要 | 脚本连接本地 MinIO、生成凭据并创建 `ai-cmm` bucket |
 | RabbitMQ 队列、交换机和死信名称 | 可选 | 不填写时使用识别服务代码默认值；填写后本地模式会保留 |
 | 模型路径、超时、重试和资源阈值 | 可选 | 不填写时使用代码默认值；模型文件本身仍需存在 |
 | `apps/web/.env.local` | 可选 | 不创建时前端默认连接本机两个 API 和 SAM3 WebSocket |
+| `services/auth/.env` | 本地模式不需要 | 本地脚本自动生成认证数据库、Redis 和签名密钥配置 |
 
-使用 `-Infra local` 时，启动脚本先读取两个服务 `.env` 中的业务配置，再用
+使用 `-Infra local` 时，启动脚本先读取三个服务 `.env` 中的业务配置，再用
 `.local/infra.env` 覆盖 PostgreSQL、RabbitMQ、Redis 和 S3 的连接地址及凭据。因此，即使
-两个 `.env` 只填写了 Qwen Key，其余本地组件仍会自动启动和配置。两个本地数据库固定为
-`annotation_studio_local` 和 `recognition_service_local`，队列名称等业务参数不会被覆盖。
+业务服务 `.env` 只填写了 Qwen Key，其余本地组件仍会自动启动和配置。三个本地数据库固定为
+`annotation_studio_local`、`recognition_service_local` 和 `auth_service_local`，队列名称等业务参数不会被覆盖。
 
 推荐仅配置 Key 时明确使用本地模式，避免探测模板里的外部示例地址：
 
@@ -106,16 +122,17 @@ RabbitMQ、MinIO 等本地登录凭据保存在 `.local/infra.env`。首次启�
 
 ### 使用外部基础设施
 
-使用 `-Infra external` 时，两个服务的 `.env` 都必须存在并填写完整的外部连接；它们可以
-使用相同的 `POSTGRES_HOST`、`POSTGRES_PORT`、用户名和密码，但 `POSTGRES_DB` 必须不同。
+使用 `-Infra external` 时，三个服务的 `.env` 都必须存在并填写完整的外部连接；它们可以
+使用相同的 `POSTGRES_HOST`、`POSTGRES_PORT`、用户名和密码，但 `POSTGRES_DB` 必须互不相同。
 
 | 服务 | 外部模式必填连接参数 | 可选参数 |
 | --- | --- | --- |
 | 标注服务 | `POSTGRES_HOST`、`POSTGRES_USER`、`POSTGRES_PASSWORD`、`POSTGRES_DB`、`S3_ENDPOINT`、`S3_ACCESS_KEY`、`S3_SECRET_KEY` | `POSTGRES_PORT`、S3 region/signature/bucket 使用默认值时可省略 |
 | 识别服务 | `POSTGRES_HOST`、`POSTGRES_USER`、`POSTGRES_PASSWORD`、`POSTGRES_DB`、`RABBITMQ_HOST`、`RABBITMQ_USER`、`RABBITMQ_PASS`、`REDIS_HOST`、`S3_ENDPOINT`、`S3_ACCESS_KEY`、`S3_SECRET_KEY` | 各端口、RabbitMQ vhost、Redis DB 和无密码 Redis 的 password 可省略 |
+| 认证服务 | `POSTGRES_HOST`、`POSTGRES_USER`、`POSTGRES_PASSWORD`、`POSTGRES_DB`、`REDIS_HOST`、`AUTH_PRIVATE_KEY_PATH`、`AUTH_PUBLIC_KEY_PATH` | 各端口、无密码 Redis 的 password 可省略；生产环境必须预先挂载 Ed25519 密钥 |
 
-`-Infra auto` 不会根据 Qwen Key 自动配置外部基础设施。它会把两个 `.env` 当作候选外部
-配置执行带认证的协议检查：只有两个文件都存在、所有外部依赖都可用且数据库不相同时才
+`-Infra auto` 不会根据 Qwen Key 自动配置外部基础设施。它会把三个 `.env` 当作候选外部
+配置执行带认证的协议检查：只有三个服务的 `.env` 都存在、所有外部依赖都可用且三个数据库互不相同时才
 使用外部环境；缺少连接参数或任意检查失败时，整套切换到本地 Docker 基础设施。若复制了
 完整模板但只想填写 Key，使用 `-Infra local` 最明确。
 
@@ -130,7 +147,7 @@ RabbitMQ、MinIO 等本地登录凭据保存在 `.local/infra.env`。首次启�
 # 只启动前端
 .\scripts\dev.ps1 -Profile web
 
-# 启动两个 FastAPI，不启动 Worker、Consumer 和前端
+# 启动认证、标注和识别三个 FastAPI，不启动 Worker、Consumer 和前端
 .\scripts\dev.ps1 -Profile api -Infra local
 
 # 使用外部基础设施
@@ -153,7 +170,7 @@ Ctrl+C 会停止本次创建的原生业务进程，本地基础设施容器和�
 
 本地环境包含：
 
-- PostgreSQL `127.0.0.1:15432`，数据库为 `annotation_studio_local` 和 `recognition_service_local`
+- PostgreSQL `127.0.0.1:15432`，数据库为 `annotation_studio_local`、`recognition_service_local` 和 `auth_service_local`
 - RabbitMQ `127.0.0.1:15673`，管理界面 `http://127.0.0.1:15674`
 - Redis `127.0.0.1:16379`
 - MinIO `http://127.0.0.1:19000`，控制台 `http://127.0.0.1:19001`
@@ -165,18 +182,19 @@ Ctrl+C 会停止本次创建的原生业务进程，本地基础设施容器和�
 
 ## 项目说明
 
-AI Annotation Studio 是一个 monorepo。本地开发时，前端和两个 Python 服务通过 pnpm/uv
+AI Annotation Studio 是一个 monorepo。本地开发时，前端和三个 Python 服务通过 pnpm/uv
 原生运行，Docker 只运行本地基础设施。
 
 ```text
-apps/web/                 Vue 3 标注与识别前端
+apps/web/                 Vue 3 标注、识别与用户管理前端
+services/auth/            FastAPI 登录、会话和用户审批服务
 services/annotation/      FastAPI 标注、YOLO 训练与 SAM3 服务
 services/recognition/     FastAPI、Celery Worker 与结果 Consumer
 infra/local/              本地 PostgreSQL、RabbitMQ、Redis、MinIO
 scripts/                  本地启动、基础设施和检查脚本
 ```
 
-两个 Python 服务可以连接同一个 PostgreSQL 实例，但必须使用不同数据库，因为它们拥有
+三个 Python 服务可以连接同一个 PostgreSQL 实例，但必须使用不同数据库，因为它们拥有
 独立的 Alembic 迁移历史。识别服务的任务、结果和死信队列也由识别服务独立配置。
 
 ### 子项目独立启动
@@ -194,10 +212,11 @@ cd services\recognition
 .\start.ps1
 ```
 
-两个 Python 服务支持 `APP_ENV_FILE` 指定环境文件；未设置时继续读取项目内 `.env`。Vite 代理支持：
+三个 Python 服务支持 `APP_ENV_FILE` 指定环境文件；未设置时继续读取项目内 `.env`。Vite 代理支持：
 
 - `VITE_ANNOTATION_PROXY_TARGET`
 - `VITE_RECOGNITION_PROXY_TARGET`
+- `VITE_AUTH_PROXY_TARGET`
 - `VITE_SAM3_PROXY_TARGET`
 
 默认目标是本机的 `8811`、`7987` 和 `8811/ws`。
@@ -218,7 +237,7 @@ cd services\recognition
 .\scripts\check.ps1
 ```
 
-脚本执行前端类型检查/构建、Python 编译、Ruff、pytest、Alembic heads、Compose 配置和 Git 敏感文件检查。识别服务当前没有可收集的 pytest 用例时会给出提示而不是失败。
+脚本执行前端类型检查、Python 编译、Ruff、pytest、三个 Alembic heads、Compose 配置和 Git 敏感文件检查。
 
 ## GitLab 镜像流水线
 
@@ -234,11 +253,21 @@ cd services\recognition
 ```text
 web
 annotation
+auth
 recognition-api
 recognition-worker
 recognition-consumer
 ```
 
-运行镜像同时具有不可变的 `$CI_COMMIT_SHA` 标签和浮动的 `deploy` 标签。两个 Python 依赖镜像使用构建输入哈希缓存；较旧流水线不会把 `deploy` 标签回退到旧提交。
+运行镜像同时具有不可变的 `$CI_COMMIT_SHA` 标签和浮动的 `deploy` 标签。三个 Python 依赖镜像使用构建输入哈希缓存；较旧流水线不会把 `deploy` 标签回退到旧提交。
+
+## 认证与公开检测边界
+
+- 标注、训练、Agent、模型库、综合配置和识别任务管理必须登录。
+- 普通用户可以查看平台数据，只能修改自己创建的任务、模型和综合配置。
+- 历史无归属数据只有超级管理员可以修改；响应中的 `can_manage` 决定前端是否显示操作按钮，后端仍会再次校验。
+- `/api/recognition/recognize*`、`/api/project/recognize`、单任务 UUID 状态和 COCO 结果保持匿名开放。
+- 匿名检测带 IP 限流、图片数量/体积限制和外部图片 URL 的 SSRF 防护。
+- 公开接口文档位于识别服务 `/public/docs`；完整接口文档只允许超级管理员访问。
 
 本阶段不包含 SSH、服务器 Compose 文件交付、`docker pull` 或生产容器启动。

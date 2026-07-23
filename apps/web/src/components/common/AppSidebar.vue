@@ -1,8 +1,5 @@
 <template>
-  <aside
-    class="app-sidebar"
-    :class="{ 'is-focus-mode': focusMode, 'is-mobile-open': mobileOpen }"
-  >
+  <aside class="app-sidebar" :class="{ 'is-focus-mode': focusMode, 'is-mobile-open': mobileOpen }">
     <RouterLink to="/task" class="sidebar-brand" aria-label="返回标注任务">
       <img src="/favicon-32.png?v=20260722b" alt="" class="sidebar-logo" />
       <div class="sidebar-brand-copy">
@@ -38,14 +35,28 @@
     </nav>
 
     <div class="sidebar-footer">
-      <span class="sidebar-status-dot" />
-      <span>服务控制台</span>
+      <div class="sidebar-user">
+        <span class="sidebar-avatar">{{ userInitial }}</span>
+        <div class="sidebar-user-copy">
+          <strong>{{ auth.user?.display_name }}</strong
+          ><span>{{ roleText }}</span>
+        </div>
+      </div>
+      <v-btn
+        icon="mdi-logout"
+        variant="text"
+        size="x-small"
+        title="退出登录"
+        @click="handleLogout"
+      />
     </div>
   </aside>
 </template>
 
 <script setup lang="ts">
-import { useRoute } from 'vue-router'
+import { computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 
 type NavigationItem = {
   label: string
@@ -69,43 +80,72 @@ const emit = defineEmits<{
 }>()
 
 const route = useRoute()
+const router = useRouter()
+const auth = useAuthStore()
+const userInitial = computed(() =>
+  (auth.user?.display_name || auth.user?.username || 'U').slice(0, 1),
+)
+const roleText = computed(() => (auth.isSuperAdmin ? '超级管理员' : '普通用户'))
 
-const navigationGroups: NavigationGroup[] = [
-  {
-    label: '标注与训练',
-    items: [
-      {
-        label: '标注任务',
-        to: '/task',
-        icon: 'mdi-folder-outline',
-        match: (path) => path.startsWith('/task'),
-      },
-    ],
-  },
-  {
-    label: '检测服务',
-    items: [
-      {
-        label: '识别任务',
-        to: '/ai/recognition',
-        icon: 'mdi-clipboard-text-outline',
-        match: (path) => path === '/ai/recognition',
-      },
-      {
-        label: '模型库',
-        to: '/ai/models',
-        icon: 'mdi-cube-outline',
-        match: (path) => path === '/ai/models',
-      },
-      {
-        label: '综合检测',
-        to: '/ai/combinations',
-        icon: 'mdi-vector-combine',
-        match: (path) => path === '/ai/combinations',
-      },
-    ],
-  },
-]
+const handleLogout = async () => {
+  await auth.logout()
+  await router.replace({ name: 'login' })
+}
+
+const navigationGroups = computed<NavigationGroup[]>(() => {
+  const groups: NavigationGroup[] = [
+    {
+      label: '标注与训练',
+      items: [
+        {
+          label: '标注任务',
+          to: '/task',
+          icon: 'mdi-folder-outline',
+          match: (path) => path.startsWith('/task'),
+        },
+      ],
+    },
+    {
+      label: '检测服务',
+      items: [
+        {
+          label: '识别任务',
+          to: '/ai/recognition',
+          icon: 'mdi-clipboard-text-outline',
+          match: (path) => path === '/ai/recognition',
+        },
+        {
+          label: '模型库',
+          to: '/ai/models',
+          icon: 'mdi-cube-outline',
+          match: (path) => path === '/ai/models',
+        },
+        {
+          label: '综合检测',
+          to: '/ai/combinations',
+          icon: 'mdi-vector-combine',
+          match: (path) => path === '/ai/combinations',
+        },
+      ],
+    },
+  ]
+
+  if (auth.isSuperAdmin) {
+    groups.push({
+      label: '系统管理',
+      items: [
+        {
+          label: '用户管理',
+          to: '/admin/users',
+          icon: 'mdi-account-group-outline',
+          match: (path) => path === '/admin/users',
+        },
+      ],
+    })
+  }
+
+  return groups
+})
 
 const isActive = (item: NavigationItem): boolean => item.match(route.path)
 </script>
@@ -231,24 +271,50 @@ const isActive = (item: NavigationItem): boolean => item.match(route.path)
 }
 
 .sidebar-footer {
-  height: 42px;
-  min-height: 42px;
+  height: 54px;
+  min-height: 54px;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 0 18px;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 0 10px;
   color: var(--studio-ink-tertiary);
   border-top: 1px solid var(--studio-hairline);
   font-size: 11px;
   white-space: nowrap;
 }
-
-.sidebar-status-dot {
-  width: 6px;
-  height: 6px;
+.sidebar-user {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sidebar-avatar {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
   flex: 0 0 auto;
-  background: rgb(var(--v-theme-success));
-  border-radius: 50%;
+  color: #fff;
+  background: var(--studio-primary);
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 650;
+}
+.sidebar-user-copy {
+  min-width: 0;
+  display: grid;
+}
+.sidebar-user-copy strong {
+  overflow: hidden;
+  color: var(--studio-ink);
+  font-size: 12px;
+  font-weight: 550;
+  text-overflow: ellipsis;
+}
+.sidebar-user-copy span {
+  color: var(--studio-ink-tertiary);
+  font-size: 10px;
 }
 
 .app-sidebar.is-focus-mode {
@@ -264,7 +330,8 @@ const isActive = (item: NavigationItem): boolean => item.match(route.path)
 .is-focus-mode .sidebar-brand-copy,
 .is-focus-mode .sidebar-group-label,
 .is-focus-mode .sidebar-link span,
-.is-focus-mode .sidebar-footer span:not(.sidebar-status-dot) {
+.is-focus-mode .sidebar-footer .sidebar-user-copy,
+.is-focus-mode .sidebar-footer .v-btn {
   display: none;
 }
 

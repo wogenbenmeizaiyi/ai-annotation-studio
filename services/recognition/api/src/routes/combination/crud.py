@@ -2,11 +2,12 @@ import math
 import uuid
 from dataclasses import dataclass
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from core.db import get_db
+from core.auth import AuthContext, get_request_auth, require_owner
 from core.schemas.recognition import (
     RecognitionCombination,
     RecognitionCombinationModel,
@@ -50,13 +51,15 @@ def _serialize_model(row: RecognitionModelConfig) -> dict:
     }
 
 
-def _serialize_combination(row: RecognitionCombination) -> dict:
+def _serialize_combination(row: RecognitionCombination, auth: AuthContext) -> dict:
     return {
         "uuid": row.uuid,
         "name": row.name,
         "project_name": row.project_name,
         "description": row.description,
         "is_deleted": row.is_deleted,
+        "owner_subject_id": row.owner_subject_id,
+        "can_manage": auth.can_manage(row.owner_subject_id),
         "models": [_serialize_model(link.model) for link in row.model_links],
         "created_at": _datetime_to_text(row.created_at),
         "updated_at": _datetime_to_text(row.updated_at),
@@ -132,16 +135,19 @@ def _sync_models(
 
 @router.post("")
 async def create_recognition_combination(
-    request: RecognitionCombinationCreateRequest,
+    payload: RecognitionCombinationCreateRequest,
+    request: Request,
     db: Session = Depends(get_db),
 ) -> dict:
-    models = _resolve_models(request.model_uuids, db)
+    auth = get_request_auth(request)
+    models = _resolve_models(payload.model_uuids, db)
     row = RecognitionCombination(
         uuid=str(uuid.uuid4()),
-        name=request.name,
-        project_name=request.project_name,
-        description=request.description,
+        name=payload.name,
+        project_name=payload.project_name,
+        description=payload.description,
         is_deleted=False,
+        owner_subject_id=auth.subject_id,
     )
     _sync_models(row, models)
     db.add(row)
@@ -151,17 +157,19 @@ async def create_recognition_combination(
         db.rollback()
         raise HTTPException(status_code=409, detail="综合检测配置已存在") from exc
 
-    return _serialize_combination(_get_combination(row.uuid, db))
+    return _serialize_combination(_get_combination(row.uuid, db), auth)
 
 
 @router.get("")
 async def list_recognition_combinations(
+    request: Request,
     page: int = Query(1, ge=1),
     page_size: int = Query(10, alias="pageSize", ge=1, le=500),
     project_name: str | None = Query(None, alias="projectName"),
     include_deleted: bool = Query(False, alias="includeDeleted"),
     db: Session = Depends(get_db),
 ) -> dict:
+    auth = get_request_auth(request)
     query = db.query(RecognitionCombination)
     if not include_deleted:
         query = query.filter(RecognitionCombination.is_deleted.is_(False))
@@ -185,30 +193,35 @@ async def list_recognition_combinations(
         "pageSize": page_size,
         "totalPages": math.ceil(total / page_size) if total else 0,
         "total": total,
-        "items": [_serialize_combination(row) for row in rows],
+        "items": [_serialize_combination(row, auth) for row in rows],
     }
 
 
 @router.get("/detail")
 async def get_recognition_combination(
+    request: Request,
     uuid: str = Query(...),
     db: Session = Depends(get_db),
 ) -> dict:
-    return _serialize_combination(_get_combination(uuid, db))
+    auth = get_request_auth(request)
+    return _serialize_combination(_get_combination(uuid, db), auth)
 
 
 @router.put("")
 async def update_recognition_combination(
-    request: RecognitionCombinationUpdateRequest,
+    payload: RecognitionCombinationUpdateRequest,
+    request: Request,
     uuid: str = Query(...),
     db: Session = Depends(get_db),
 ) -> dict:
+    auth = get_request_auth(request)
     row = _get_combination(uuid, db)
-    if request.model_uuids is not None:
-        _sync_models(row, _resolve_models(request.model_uuids, db))
+    require_owner(auth, row.owner_subject_id)
+    if payload.model_uuids is not None:
+        _sync_models(row, _resolve_models(payload.model_uuids, db))
 
     for field_name in ("name", "project_name", "description", "is_deleted"):
-        value = getattr(request, field_name)
+        value = getattr(payload, field_name)
         if value is not None:
             setattr(row, field_name, value)
 
@@ -218,15 +231,18 @@ async def update_recognition_combination(
         db.rollback()
         raise HTTPException(status_code=409, detail="综合检测配置更新失败") from exc
 
-    return _serialize_combination(_get_combination(uuid, db))
+    return _serialize_combination(_get_combination(uuid, db), auth)
 
 
 @router.delete("")
 async def delete_recognition_combination(
+    request: Request,
     uuid: str = Query(...),
     db: Session = Depends(get_db),
 ) -> dict:
+    auth = get_request_auth(request)
     row = _get_combination(uuid, db)
+    require_owner(auth, row.owner_subject_id)
     row.is_deleted = True
     db.commit()
     return {"deleted": True, "uuid": uuid}

@@ -5,6 +5,34 @@ load_dotenv(dotenv_path=os.getenv("APP_ENV_FILE") or None)
 
 
 class Config:
+    AUTH_PUBLIC_KEY_PATH = os.getenv("AUTH_PUBLIC_KEY_PATH", ".local/auth/public.pem")
+    AUTH_ISSUER = os.getenv("AUTH_ISSUER", "ai-annotation-studio-auth")
+    AUTH_AUDIENCE = os.getenv("AUTH_AUDIENCE", "ai-annotation-studio")
+    AUTH_ACCESS_COOKIE = os.getenv("AUTH_ACCESS_COOKIE", "studio_access")
+    AUTH_CSRF_COOKIE = os.getenv("AUTH_CSRF_COOKIE", "studio_csrf")
+    AUTH_REDIS_DB = int(os.getenv("AUTH_REDIS_DB", "3"))
+    AUTH_REDIS_URL = os.getenv("AUTH_REDIS_URL", "")
+    PLATFORM_ALLOWED_ORIGINS = [
+        value.strip()
+        for value in os.getenv(
+            "PLATFORM_ALLOWED_ORIGINS",
+            "http://127.0.0.1:5173,http://localhost:5173",
+        ).split(",")
+        if value.strip()
+    ]
+    TRUST_PROXY_HEADERS = os.getenv("TRUST_PROXY_HEADERS", "false").lower() == "true"
+    PUBLIC_SUBMIT_RATE = int(os.getenv("PUBLIC_SUBMIT_RATE", "30"))
+    PUBLIC_DIRECT_RATE = int(os.getenv("PUBLIC_DIRECT_RATE", "10"))
+    PUBLIC_QUERY_RATE = int(os.getenv("PUBLIC_QUERY_RATE", "120"))
+    PUBLIC_MAX_IMAGES = int(os.getenv("PUBLIC_MAX_IMAGES", "100"))
+    PUBLIC_MAX_UPLOAD_BYTES = int(
+        os.getenv("PUBLIC_MAX_UPLOAD_BYTES", str(20 * 1024 * 1024))
+    )
+    PUBLIC_IMAGE_URL_ALLOWLIST = [
+        value.strip().lower()
+        for value in os.getenv("PUBLIC_IMAGE_URL_ALLOWLIST", "").split(",")
+        if value.strip()
+    ]
     RABBITMQ_HOST = os.getenv("RABBITMQ_HOST")
     RABBITMQ_PORT = int(os.getenv("RABBITMQ_PORT", 5672))
     RABBITMQ_USER = os.getenv("RABBITMQ_USER")
@@ -87,6 +115,17 @@ class Config:
     REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))  # 转整数
     REDIS_DB = int(os.getenv("REDIS_DB", 0))  # 转整数
     REDIS_PASSWORD = os.getenv("REDIS_PASSWORD")
+
+    @property
+    def AUTH_STATE_REDIS_URL(self):
+        if self.AUTH_REDIS_URL:
+            return self.AUTH_REDIS_URL
+        if self.REDIS_PASSWORD:
+            return (
+                f"redis://:{self.REDIS_PASSWORD}@{self.REDIS_HOST}:"
+                f"{self.REDIS_PORT}/{self.AUTH_REDIS_DB}"
+            )
+        return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/{self.AUTH_REDIS_DB}"
 
     # Backend URL
     @property

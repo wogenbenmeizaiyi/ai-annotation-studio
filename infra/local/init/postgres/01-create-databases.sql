@@ -1,2 +1,3 @@
 CREATE DATABASE annotation_studio_local;
 CREATE DATABASE recognition_service_local;
+CREATE DATABASE auth_service_local;

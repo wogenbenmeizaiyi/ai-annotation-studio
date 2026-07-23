@@ -4,11 +4,12 @@ from dataclasses import dataclass
 from pathlib import PurePosixPath
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from core.config import config
+from core.auth import AuthContext, get_request_auth, require_owner
 from core.db import get_db
 from core.s3.s3_client import s3
 from core.schemas.recognition import RecognitionModelConfig
@@ -53,7 +54,7 @@ def _datetime_to_text(value: Any) -> str | None:
     return value.isoformat() if value else None
 
 
-def _serialize_model(row: RecognitionModelConfig) -> dict:
+def _serialize_model(row: RecognitionModelConfig, auth: AuthContext) -> dict:
     return {
         "id": row.id,
         "uuid": row.uuid,
@@ -65,6 +66,8 @@ def _serialize_model(row: RecognitionModelConfig) -> dict:
         "project_name": row.project_name,
         "is_deleted": row.is_deleted,
         "description": row.description,
+        "owner_subject_id": row.owner_subject_id,
+        "can_manage": auth.can_manage(row.owner_subject_id),
         "created_at": _datetime_to_text(row.created_at),
         "updated_at": _datetime_to_text(row.updated_at),
     }
@@ -77,7 +80,7 @@ def _build_model_storage_key(detection_type: int, model_file: str) -> str:
     return str(PurePosixPath(prefix) / model_file)
 
 
-def _commit_model(db: Session, row: RecognitionModelConfig) -> dict:
+def _commit_model(db: Session, row: RecognitionModelConfig, auth: AuthContext) -> dict:
     db.add(row)
     try:
         db.commit()
@@ -88,42 +91,47 @@ def _commit_model(db: Session, row: RecognitionModelConfig) -> dict:
             status_code=409,
             detail="recognition model config already exists",
         ) from exc
-    return _serialize_model(row)
+    return _serialize_model(row, auth)
 
 
 @router.post("")
 async def create_recognition_model(
-    request: RecognitionModelCreateRequest,
+    payload: RecognitionModelCreateRequest,
+    request: Request,
     db: Session = Depends(get_db),
 ) -> dict:
-    model_file = request.model_file
-    storage_key = request.storage_key
-    if request.detection_type == 3:
+    auth = get_request_auth(request)
+    model_file = payload.model_file
+    storage_key = payload.storage_key
+    if payload.detection_type == 3:
         model_file = SAM_DEFAULT_MODEL_FILE
         storage_key = SAM_DEFAULT_STORAGE_KEY
 
     row = RecognitionModelConfig(
-        uuid=request.uuid or str(uuid.uuid4()),
-        name=request.name,
-        detection_type=request.detection_type,
-        prompt=request.prompt,
+        uuid=payload.uuid or str(uuid.uuid4()),
+        name=payload.name,
+        detection_type=payload.detection_type,
+        prompt=payload.prompt,
         model_file=model_file,
         storage_key=storage_key,
-        project_name=request.project_name,
-        is_deleted=request.is_deleted,
-        description=request.description,
+        project_name=payload.project_name,
+        is_deleted=payload.is_deleted,
+        description=payload.description,
+        owner_subject_id=auth.subject_id,
     )
-    return _commit_model(db, row)
+    return _commit_model(db, row, auth)
 
 
 @router.get("")
 async def list_recognition_models(
+    request: Request,
     page: int = Query(1, ge=1),
     page_size: int = Query(10, alias="pageSize", ge=1, le=500),
     detection_type: int | None = Query(None),
     include_deleted: bool = Query(False, alias="includeDeleted"),
     db: Session = Depends(get_db),
 ) -> dict:
+    auth = get_request_auth(request)
     query = db.query(RecognitionModelConfig)
     if not include_deleted:
         query = query.filter(RecognitionModelConfig.is_deleted.is_(False))
@@ -142,12 +150,13 @@ async def list_recognition_models(
         "pageSize": page_size,
         "totalPages": math.ceil(total / page_size) if total else 0,
         "total": total,
-        "items": [_serialize_model(row) for row in rows],
+        "items": [_serialize_model(row, auth) for row in rows],
     }
 
 
 @router.post("/upload")
 async def upload_recognition_model(
+    request: Request,
     file: UploadFile = File(...),
     name: str = Form(...),
     detection_type: int = Form(...),
@@ -157,6 +166,7 @@ async def upload_recognition_model(
     storage_key: str | None = Form(None),
     db: Session = Depends(get_db),
 ) -> dict:
+    auth = get_request_auth(request)
     model_uuid = str(uuid.uuid4())
     if detection_type == 3:
         model_file = SAM_DEFAULT_MODEL_FILE
@@ -185,15 +195,18 @@ async def upload_recognition_model(
         project_name=project_name,
         is_deleted=False,
         description=description,
+        owner_subject_id=auth.subject_id,
     )
-    return _commit_model(db, row)
+    return _commit_model(db, row, auth)
 
 
 @router.get("/{model_uuid}")
 async def get_recognition_model(
     model_uuid: str,
+    request: Request,
     db: Session = Depends(get_db),
 ) -> dict:
+    auth = get_request_auth(request)
     row = (
         db.query(RecognitionModelConfig)
         .filter(RecognitionModelConfig.uuid == model_uuid)
@@ -201,15 +214,17 @@ async def get_recognition_model(
     )
     if row is None:
         raise HTTPException(status_code=404, detail="recognition model not found")
-    return _serialize_model(row)
+    return _serialize_model(row, auth)
 
 
 @router.put("/{model_uuid}")
 async def update_recognition_model(
     model_uuid: str,
-    request: RecognitionModelUpdateRequest,
+    payload: RecognitionModelUpdateRequest,
+    request: Request,
     db: Session = Depends(get_db),
 ) -> dict:
+    auth = get_request_auth(request)
     row = (
         db.query(RecognitionModelConfig)
         .filter(RecognitionModelConfig.uuid == model_uuid)
@@ -217,6 +232,7 @@ async def update_recognition_model(
     )
     if row is None:
         raise HTTPException(status_code=404, detail="recognition model not found")
+    require_owner(auth, row.owner_subject_id)
 
     for field_name in (
         "name",
@@ -228,7 +244,7 @@ async def update_recognition_model(
         "is_deleted",
         "description",
     ):
-        value = getattr(request, field_name)
+        value = getattr(payload, field_name)
         if value is not None:
             setattr(row, field_name, value)
 
@@ -241,14 +257,16 @@ async def update_recognition_model(
             status_code=409,
             detail="recognition model config already exists",
         ) from exc
-    return _serialize_model(row)
+    return _serialize_model(row, auth)
 
 
 @router.delete("/{model_uuid}")
 async def delete_recognition_model(
     model_uuid: str,
+    request: Request,
     db: Session = Depends(get_db),
 ) -> dict:
+    auth = get_request_auth(request)
     row = (
         db.query(RecognitionModelConfig)
         .filter(RecognitionModelConfig.uuid == model_uuid)
@@ -256,6 +274,7 @@ async def delete_recognition_model(
     )
     if row is None:
         raise HTTPException(status_code=404, detail="recognition model not found")
+    require_owner(auth, row.owner_subject_id)
 
     row.is_deleted = True
     db.commit()

@@ -1,7 +1,12 @@
 <template>
   <v-app class="app-shell">
-    <div class="app-layout" :class="{ 'is-focus-mode': focusMode }">
-      <AppSidebar :focus-mode="focusMode" :mobile-open="mobileNavigationOpen" @close="closeMobileNavigation" />
+    <RouterView v-if="publicLayout" />
+    <div v-else class="app-layout" :class="{ 'is-focus-mode': focusMode }">
+      <AppSidebar
+        :focus-mode="focusMode"
+        :mobile-open="mobileNavigationOpen"
+        @close="closeMobileNavigation"
+      />
 
       <div class="app-workspace">
         <div class="app-topbar">
@@ -41,6 +46,7 @@ const route = useRoute()
 const mobileNavigationOpen = ref(false)
 
 const focusMode = computed(() => Boolean(route.meta.focusMode))
+const publicLayout = computed(() => Boolean(route.meta.publicLayout))
 
 const closeMobileNavigation = () => {
   mobileNavigationOpen.value = false

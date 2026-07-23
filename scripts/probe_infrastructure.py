@@ -136,13 +136,28 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--annotation-env", type=Path, required=True)
     parser.add_argument("--recognition-env", type=Path, required=True)
+    parser.add_argument("--auth-env", type=Path, required=True)
     args = parser.parse_args()
 
     annotation = load_environment(args.annotation_env)
     recognition = load_environment(args.recognition_env)
-    environments = [annotation, recognition]
+    auth = load_environment(args.auth_env)
+    environments = [annotation, recognition, auth]
 
     checks = [
+        run_check(
+            "auth-postgres",
+            f"{auth.get('POSTGRES_HOST', '?')}:{auth.get('POSTGRES_PORT', '5432')}/"
+            f"{auth.get('POSTGRES_DB', '?')}",
+            lambda: probe_postgres(auth),
+            environments,
+        ),
+        run_check(
+            "auth-redis",
+            f"{auth.get('REDIS_HOST', '?')}:{auth.get('REDIS_PORT', '6379')}",
+            lambda: probe_redis(auth),
+            environments,
+        ),
         run_check(
             "annotation-postgres",
             f"{annotation.get('POSTGRES_HOST', '?')}:{annotation.get('POSTGRES_PORT', '5432')}/"

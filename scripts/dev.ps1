@@ -14,6 +14,7 @@ $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $WebApp = Join-Path $RepoRoot 'apps\web'
 $AnnotationService = Join-Path $RepoRoot 'services\annotation'
 $RecognitionService = Join-Path $RepoRoot 'services\recognition'
+$AuthService = Join-Path $RepoRoot 'services\auth'
 $LocalDirectory = Join-Path $RepoRoot '.local'
 $EffectiveEnvironmentDirectory = Join-Path $LocalDirectory 'env'
 $LogDirectory = Join-Path $LocalDirectory 'logs'
@@ -22,6 +23,7 @@ $ProbeScript = Join-Path $PSScriptRoot 'probe_infrastructure.py'
 $InfraScript = Join-Path $PSScriptRoot 'infra.ps1'
 $AnnotationSourceEnvironment = Join-Path $AnnotationService '.env'
 $RecognitionSourceEnvironment = Join-Path $RecognitionService '.env'
+$AuthSourceEnvironment = Join-Path $AuthService '.env'
 $ManagedProcesses = [Collections.Generic.List[object]]::new()
 
 function Invoke-CheckedCommand {
@@ -146,6 +148,8 @@ function Ensure-ApplicationDependencies {
     Invoke-CheckedCommand 'uv' @('sync', '--frozen') $AnnotationService
     Write-Host 'Synchronizing recognition dependencies...' -ForegroundColor Cyan
     Invoke-CheckedCommand 'uv' @('sync', '--frozen') $RecognitionService
+    Write-Host 'Synchronizing auth dependencies...' -ForegroundColor Cyan
+    Invoke-CheckedCommand 'uv' @('sync', '--frozen') $AuthService
 }
 
 function Ensure-WebDependencies {
@@ -161,13 +165,15 @@ function Ensure-WebDependencies {
 function Invoke-InfrastructureProbe {
     param(
         [Parameter(Mandatory)][string]$AnnotationEnvironment,
-        [Parameter(Mandatory)][string]$RecognitionEnvironment
+        [Parameter(Mandatory)][string]$RecognitionEnvironment,
+        [Parameter(Mandatory)][string]$AuthEnvironment
     )
 
     $recognitionPython = Join-Path $RecognitionService '.venv\Scripts\python.exe'
     $output = & $recognitionPython $ProbeScript `
         --annotation-env $AnnotationEnvironment `
-        --recognition-env $RecognitionEnvironment
+        --recognition-env $RecognitionEnvironment `
+        --auth-env $AuthEnvironment
     $probeExitCode = $LASTEXITCODE
     try {
         $result = ($output -join [Environment]::NewLine) | ConvertFrom-Json
@@ -192,6 +198,10 @@ function New-LocalEffectiveEnvironments {
     $localValues = Read-DotEnv $InfraEnvironment
     $annotationEffective = Join-Path $EffectiveEnvironmentDirectory 'annotation.env'
     $recognitionEffective = Join-Path $EffectiveEnvironmentDirectory 'recognition.env'
+    $authEffective = Join-Path $EffectiveEnvironmentDirectory 'auth.env'
+    $authKeyDirectory = Join-Path $LocalDirectory 'auth'
+    $authPrivateKey = Join-Path $authKeyDirectory 'private.pem'
+    $authPublicKey = Join-Path $authKeyDirectory 'public.pem'
 
     $annotationOverrides = @{
         POSTGRES_HOST = '127.0.0.1'
@@ -205,6 +215,12 @@ function New-LocalEffectiveEnvironments {
         S3_REGION = 'us-east-1'
         S3_SIGNATURE_VERSION = 's3v4'
         S3_BUCKET_NAME = 'ai-cmm'
+        AUTH_PUBLIC_KEY_PATH = $authPublicKey
+        AUTH_REDIS_HOST = '127.0.0.1'
+        AUTH_REDIS_PORT = Get-EnvironmentValue $localValues 'LOCAL_REDIS_PORT' '16379'
+        AUTH_REDIS_PASSWORD = Get-EnvironmentValue $localValues 'LOCAL_REDIS_PASSWORD'
+        AUTH_REDIS_DB = '3'
+        AUTH_ALLOWED_ORIGINS = 'http://127.0.0.1:5173,http://localhost:5173'
     }
     $recognitionOverrides = @{
         POSTGRES_HOST = '127.0.0.1'
@@ -226,10 +242,29 @@ function New-LocalEffectiveEnvironments {
         S3_SECRET_KEY = Get-EnvironmentValue $localValues 'LOCAL_MINIO_PASSWORD'
         S3_REGION = 'us-east-1'
         S3_SIGNATURE_VERSION = 's3v4'
+        AUTH_PUBLIC_KEY_PATH = $authPublicKey
+        AUTH_REDIS_DB = '3'
+        PLATFORM_ALLOWED_ORIGINS = 'http://127.0.0.1:5173,http://localhost:5173'
+    }
+    $authOverrides = @{
+        POSTGRES_HOST = '127.0.0.1'
+        POSTGRES_PORT = Get-EnvironmentValue $localValues 'LOCAL_POSTGRES_PORT' '15432'
+        POSTGRES_USER = Get-EnvironmentValue $localValues 'LOCAL_POSTGRES_USER'
+        POSTGRES_PASSWORD = Get-EnvironmentValue $localValues 'LOCAL_POSTGRES_PASSWORD'
+        POSTGRES_DB = 'auth_service_local'
+        REDIS_HOST = '127.0.0.1'
+        REDIS_PORT = Get-EnvironmentValue $localValues 'LOCAL_REDIS_PORT' '16379'
+        REDIS_PASSWORD = Get-EnvironmentValue $localValues 'LOCAL_REDIS_PASSWORD'
+        REDIS_DB = '3'
+        AUTH_PRIVATE_KEY_PATH = $authPrivateKey
+        AUTH_PUBLIC_KEY_PATH = $authPublicKey
+        AUTH_COOKIE_SECURE = 'false'
+        AUTH_ALLOWED_ORIGINS = 'http://127.0.0.1:5173,http://localhost:5173'
     }
     Write-EffectiveEnvironment $AnnotationSourceEnvironment $annotationEffective $annotationOverrides
     Write-EffectiveEnvironment $RecognitionSourceEnvironment $recognitionEffective $recognitionOverrides
-    return @($annotationEffective, $recognitionEffective)
+    Write-EffectiveEnvironment $AuthSourceEnvironment $authEffective $authOverrides
+    return @($annotationEffective, $recognitionEffective, $authEffective)
 }
 
 function Invoke-DatabaseMigration {
@@ -318,20 +353,48 @@ function Stop-ManagedProcess {
     & taskkill.exe /PID $Entry.Process.Id /T /F *> $null
 }
 
+function Assert-TcpPortAvailable {
+    param(
+        [Parameter(Mandatory)][int]$Port,
+        [Parameter(Mandatory)][string]$ServiceName
+    )
+
+    $listener = [Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback, $Port)
+    try {
+        $listener.Start()
+    }
+    catch {
+        throw "$ServiceName cannot start because port $Port is already in use. Stop the existing development process and try again."
+    }
+    finally {
+        $listener.Stop()
+    }
+}
+
+if ($Profile -in @('api', 'full')) {
+    Assert-TcpPortAvailable 8787 'Auth API'
+    Assert-TcpPortAvailable 8811 'Annotation API'
+    Assert-TcpPortAvailable 7987 'Recognition API'
+}
+if ($Profile -in @('web', 'full')) {
+    Assert-TcpPortAvailable 5173 'Web application'
+}
+
 if ($Profile -in @('api', 'full')) {
     Ensure-ApplicationDependencies
 
     $annotationEnvironment = $AnnotationSourceEnvironment
     $recognitionEnvironment = $RecognitionSourceEnvironment
+    $authEnvironment = $AuthSourceEnvironment
     $useLocalInfrastructure = $Infra -eq 'local'
 
     if ($Infra -in @('auto', 'external')) {
         $externalFilesExist = (Test-Path -LiteralPath $AnnotationSourceEnvironment) -and (
             Test-Path -LiteralPath $RecognitionSourceEnvironment
-        )
+        ) -and (Test-Path -LiteralPath $AuthSourceEnvironment)
         if (-not $externalFilesExist) {
             if ($Infra -eq 'external') {
-                throw 'Both services require a .env file when -Infra external is selected.'
+                throw 'All three services require a .env file when -Infra external is selected.'
             }
             Write-Host 'External .env files are incomplete; selecting local infrastructure.' -ForegroundColor Yellow
             $useLocalInfrastructure = $true
@@ -339,9 +402,19 @@ if ($Profile -in @('api', 'full')) {
         else {
             $annotationValues = Read-DotEnv $AnnotationSourceEnvironment
             $recognitionValues = Read-DotEnv $RecognitionSourceEnvironment
+            $authValues = Read-DotEnv $AuthSourceEnvironment
             if (Test-SameDatabase $annotationValues $recognitionValues) {
                 if ($Infra -eq 'external') {
                     throw 'The two services point to the same PostgreSQL database. Configure separate databases.'
+                }
+                Write-Host 'External services share one database; selecting isolated local infrastructure.' -ForegroundColor Yellow
+                $useLocalInfrastructure = $true
+            }
+            elseif ((Test-SameDatabase $annotationValues $authValues) -or (
+                Test-SameDatabase $recognitionValues $authValues
+            )) {
+                if ($Infra -eq 'external') {
+                    throw 'Annotation, recognition, and auth must use three separate PostgreSQL databases.'
                 }
                 Write-Host 'External services share one database; selecting isolated local infrastructure.' -ForegroundColor Yellow
                 $useLocalInfrastructure = $true
@@ -350,7 +423,8 @@ if ($Profile -in @('api', 'full')) {
                 Write-Host 'Checking configured external infrastructure...' -ForegroundColor Cyan
                 $externalReady = Invoke-InfrastructureProbe `
                     $AnnotationSourceEnvironment `
-                    $RecognitionSourceEnvironment
+                    $RecognitionSourceEnvironment `
+                    $AuthSourceEnvironment
                 if (-not $externalReady) {
                     if ($Infra -eq 'external') {
                         throw 'One or more external infrastructure checks failed.'
@@ -370,8 +444,9 @@ if ($Profile -in @('api', 'full')) {
         $effectiveEnvironments = New-LocalEffectiveEnvironments
         $annotationEnvironment = $effectiveEnvironments[0]
         $recognitionEnvironment = $effectiveEnvironments[1]
+        $authEnvironment = $effectiveEnvironments[2]
         Write-Host 'Verifying local infrastructure...' -ForegroundColor Cyan
-        if (-not (Invoke-InfrastructureProbe $annotationEnvironment $recognitionEnvironment)) {
+        if (-not (Invoke-InfrastructureProbe $annotationEnvironment $recognitionEnvironment $authEnvironment)) {
             throw 'Local infrastructure started but failed protocol checks.'
         }
     }
@@ -381,6 +456,20 @@ if ($Profile -in @('api', 'full')) {
 
     Invoke-DatabaseMigration 'annotation' $AnnotationService $annotationEnvironment
     Invoke-DatabaseMigration 'recognition' $RecognitionService $recognitionEnvironment
+    Invoke-DatabaseMigration 'auth' $AuthService $authEnvironment
+    $previousAuthEnvironmentFile = $env:APP_ENV_FILE
+    try {
+        $env:APP_ENV_FILE = $authEnvironment
+        Invoke-CheckedCommand 'uv' @('run', 'python', '-m', 'scripts.ensure_keys') $AuthService
+    }
+    finally {
+        if ($null -eq $previousAuthEnvironmentFile) {
+            Remove-Item Env:APP_ENV_FILE -ErrorAction SilentlyContinue
+        }
+        else {
+            $env:APP_ENV_FILE = $previousAuthEnvironmentFile
+        }
+    }
 }
 
 if ($Profile -in @('web', 'full')) {
@@ -397,6 +486,12 @@ try {
             (Join-Path $RecognitionService 'engine\src')
         ) -join ';'
         $annotationPython = Join-Path $AnnotationService '.venv\Scripts\python.exe'
+        $authPython = Join-Path $AuthService '.venv\Scripts\python.exe'
+        Start-ManagedProcess 'auth-api' $authPython @('run.py') $AuthService (@{
+            APP_ENV_FILE = $authEnvironment
+            PYTHONUTF8 = '1'
+            PYTHONIOENCODING = 'utf-8'
+        })
         Start-ManagedProcess 'annotation-api' $annotationPython @('run.py') $AnnotationService (@{
             APP_ENV_FILE = $annotationEnvironment
             PYTHONUTF8 = '1'
@@ -441,6 +536,7 @@ try {
     if ($Profile -in @('api', 'full')) {
         Write-Host '  Annotation:  http://127.0.0.1:8811/docs'
         Write-Host '  Recognition: http://127.0.0.1:7987/docs'
+        Write-Host '  Auth:        http://127.0.0.1:8787/docs'
     }
 
     while ($true) {

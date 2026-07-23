@@ -1,8 +1,10 @@
 import io
 from urllib.parse import urlparse
 
-import requests
 from PIL import Image
+
+from core.config import config
+from core.public_security import download_public_image
 
 
 IMAGE_REQUEST_HEADERS = {
@@ -23,12 +25,15 @@ def download_image(url: str) -> tuple[Image.Image, str]:
         **IMAGE_REQUEST_HEADERS,
         "Referer": f"{parsed.scheme}://{parsed.netloc}/",
     }
-    response = requests.get(url, headers=headers, timeout=60)
-    response.raise_for_status()
+    response = download_public_image(url, headers)
 
     content_type = response.headers.get("Content-Type", "")
     if content_type and not content_type.lower().startswith("image/"):
         raise ValueError(f"downloaded content is not an image: {content_type}")
+    content_length = response.headers.get("Content-Length")
+    if content_length and int(content_length) > config.PUBLIC_MAX_UPLOAD_BYTES:
+        response.close()
+        raise ValueError("downloaded image exceeds size limit")
 
     path = parsed.path
     ext = "jpg"
@@ -37,7 +42,14 @@ def download_image(url: str) -> tuple[Image.Image, str]:
         if ext not in ("jpg", "jpeg", "png", "webp", "gif"):
             ext = "jpg"
 
-    return Image.open(io.BytesIO(response.content)).convert("RGB"), ext
+    content = bytearray()
+    for chunk in response.iter_content(chunk_size=64 * 1024):
+        content.extend(chunk)
+        if len(content) > config.PUBLIC_MAX_UPLOAD_BYTES:
+            response.close()
+            raise ValueError("downloaded image exceeds size limit")
+    response.close()
+    return Image.open(io.BytesIO(content)).convert("RGB"), ext
 
 
 def _image_to_bytes(img: Image.Image) -> bytes:

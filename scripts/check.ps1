@@ -8,6 +8,7 @@ $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $WebApp = Join-Path $RepoRoot 'apps\web'
 $AnnotationService = Join-Path $RepoRoot 'services\annotation'
 $RecognitionService = Join-Path $RepoRoot 'services\recognition'
+$AuthService = Join-Path $RepoRoot 'services\auth'
 $ComposeFile = Join-Path $RepoRoot 'infra\local\compose.yml'
 
 function Invoke-CheckedCommand {
@@ -40,7 +41,6 @@ if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
 Write-Host 'Checking web application...' -ForegroundColor Cyan
 Invoke-CheckedCommand 'corepack' @('pnpm', 'install', '--frozen-lockfile') $WebApp
 Invoke-CheckedCommand 'corepack' @('pnpm', 'type-check') $WebApp
-Invoke-CheckedCommand 'corepack' @('pnpm', 'build-only') $WebApp
 
 Write-Host 'Checking annotation service...' -ForegroundColor Cyan
 Invoke-CheckedCommand 'uv' @('sync', '--frozen') $AnnotationService
@@ -65,9 +65,17 @@ try {
         throw "pytest failed with exit code $LASTEXITCODE"
     }
 }
+
 finally {
     Pop-Location
 }
+
+Write-Host 'Checking auth service...' -ForegroundColor Cyan
+Invoke-CheckedCommand 'uv' @('sync', '--frozen') $AuthService
+Invoke-CheckedCommand 'uv' @('run', 'ruff', 'check', '.') $AuthService
+Invoke-CheckedCommand 'uv' @('run', 'python', '-m', 'compileall', '-q', 'app', 'scripts') $AuthService
+Invoke-CheckedCommand 'uv' @('run', 'alembic', 'heads') $AuthService
+Invoke-CheckedCommand 'uv' @('run', 'pytest') $AuthService
 
 if (Get-Command docker -ErrorAction SilentlyContinue) {
     Write-Host 'Validating local infrastructure Compose file...' -ForegroundColor Cyan

@@ -1,7 +1,8 @@
 import logging
 
-from fastapi import APIRouter, UploadFile, File, HTTPException, Form
+from fastapi import APIRouter, UploadFile, File, HTTPException, Form, Request
 
+from app.core.auth import get_request_auth, require_image_manager, require_task_manager
 from app.models.api_response import ApiResponse
 from app.models.annotation import CocoCategory
 from app.services.image_store import ImageStore
@@ -16,12 +17,14 @@ task_store = TaskStore()
 
 @router.post("/upload")
 async def upload_image(
+    request: Request,
     task_name: str = Form(...),
     files: list[UploadFile] = File(...),
 ):
     """
     上传图片到RustFS并在数据库创建记录，返回含预签名URL的图片信息
     """
+    require_task_manager(task_name, get_request_auth(request))
     if not files:
         raise HTTPException(status_code=400, detail="No file uploaded")
 
@@ -112,8 +115,9 @@ def get_image_list_by_task(
 
 
 @router.delete("/delete/{image_id}")
-def delete_image(image_id: int):
+def delete_image(image_id: int, request: Request):
     """
     删除图片（逻辑删除）
     """
+    require_image_manager(image_id, get_request_auth(request))
     return image_store.delete_image(image_id)

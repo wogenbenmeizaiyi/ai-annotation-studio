@@ -10,6 +10,7 @@
             <div class="sidebar-caption">选择记录查看训练详情</div>
           </div>
           <v-btn
+            v-if="canManage"
             color="primary"
             size="small"
             prepend-icon="mdi-plus"
@@ -48,7 +49,7 @@
                   :color="statusColorMap[item.status.toLowerCase()] || 'grey'"
                 />
                 <v-btn
-                  v-if="item.status === 'ERROR'"
+                  v-if="item.can_manage && item.status === 'ERROR'"
                   icon="mdi-restart"
                   size="x-small"
                   variant="text"
@@ -58,6 +59,7 @@
                   @click.stop="handleRetryTrain(item)"
                 />
                 <v-btn
+                  v-if="item.can_manage"
                   icon="mdi-close"
                   size="x-small"
                   variant="text"
@@ -88,7 +90,9 @@
         <div v-else class="d-flex flex-column align-center justify-center pa-10">
           <v-icon icon="mdi-clipboard-text-outline" size="40" color="grey-lighten-1" class="mb-3" />
           <p class="text-body-2 text-grey mb-3">暂无训练记录</p>
-          <v-btn color="primary" size="small" @click="showConfigDialog = true">开始训练</v-btn>
+          <v-btn v-if="canManage" color="primary" size="small" @click="showConfigDialog = true"
+            >开始训练</v-btn
+          >
         </div>
       </v-card>
 
@@ -338,7 +342,7 @@
 
 <script lang="ts" setup>
 import { ref, reactive, computed, inject, onMounted, watch } from 'vue'
-import { createTrain, getTrainList, deleteTrain, retryTrain } from '@/api/services'
+import { createTrain, getTask, getTrainList, deleteTrain, retryTrain } from '@/api/services'
 import type { TrainTask, TrainTaskStatus } from '@/types/train'
 import type { TrainConfig } from '@/types/ImageItem'
 import TrainMonitor from '@/components/common/TrainMonitor.vue'
@@ -362,6 +366,7 @@ const showAgentDialog = ref(false)
 const trainPriority = ref(0)
 const selectedTrainId = ref<number | null>(null)
 const trainList = ref<TrainTask[]>([])
+const canManage = ref(false)
 
 const statusColorMap: Record<string, string> = {
   pending: 'warning',
@@ -1390,8 +1395,15 @@ const formatTime = (isoStr: string): string => {
 }
 
 // 页面加载
-onMounted(() => {
-  loadTrainList()
+onMounted(async () => {
+  if (taskName) {
+    try {
+      canManage.value = (await getTask(taskName)).can_manage
+    } catch (error) {
+      console.error('加载训练权限失败:', error)
+    }
+  }
+  await loadTrainList()
 })
 </script>
 

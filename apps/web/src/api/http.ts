@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { API_BASE_URL } from '@/config/env'
+import { configureSessionClient } from '@/api/session'
 
 interface ApiResponse<T> {
   code: number
@@ -9,7 +10,10 @@ interface ApiResponse<T> {
 
 const http = axios.create({
   baseURL: API_BASE_URL,
+  withCredentials: true,
 })
+
+configureSessionClient(http)
 
 http.interceptors.response.use(
   (response) => {

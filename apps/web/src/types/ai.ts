@@ -112,6 +112,8 @@ export interface AiModel {
   description: string | null
   created_at: string
   updated_at: string
+  owner_subject_id: string | null
+  can_manage: boolean
 }
 
 export interface CreateAiModelRequest {
@@ -156,6 +158,8 @@ export interface AiCombination {
   models: AiModel[]
   created_at: string
   updated_at: string
+  owner_subject_id: string | null
+  can_manage: boolean
 }
 
 export interface CreateAiCombinationRequest {

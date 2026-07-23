@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel
 from typing import List, Optional, Union
 
@@ -6,6 +6,7 @@ from app.models.annotation import CocoAnnotation, CocoDataset, CocoCategory, Coc
 from app.models.api_response import ApiResponse
 from app.models.image import ImageModel
 from app.services.image_store import ImageStore
+from app.core.auth import get_request_auth, require_image_manager
 
 
 router = APIRouter(prefix="/annotation", tags=["Annotation"])
@@ -41,10 +42,11 @@ def get_annotation_by_image(image_id: int):
 
 
 @router.post("/update")
-def update_annotation(req: UpdateAnnotationRequest):
+def update_annotation(req: UpdateAnnotationRequest, request: Request):
     """
     更新标注信息（覆盖写入）
     """
+    require_image_manager(req.image_id, get_request_auth(request))
     img = image_store.get_image_by_id(req.image_id)
     if not img:
         return ApiResponse.error_response(

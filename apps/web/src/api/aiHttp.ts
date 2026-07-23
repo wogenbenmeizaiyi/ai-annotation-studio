@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { AI_SERVICE_BASE_URL } from '@/config/env'
+import { configureSessionClient } from '@/api/session'
 
 interface AiApiResponse<T> {
   code: number
@@ -9,7 +10,10 @@ interface AiApiResponse<T> {
 
 const aiHttp = axios.create({
   baseURL: AI_SERVICE_BASE_URL,
+  withCredentials: true,
 })
+
+configureSessionClient(aiHttp)
 
 aiHttp.interceptors.response.use(
   (response) => {

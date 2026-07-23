@@ -94,6 +94,7 @@
                   详情
                 </v-btn>
                 <v-btn
+                  v-if="combination.can_manage"
                   size="small"
                   variant="text"
                   color="primary"
@@ -102,6 +103,7 @@
                   编辑
                 </v-btn>
                 <v-btn
+                  v-if="combination.can_manage"
                   size="small"
                   variant="text"
                   color="error"

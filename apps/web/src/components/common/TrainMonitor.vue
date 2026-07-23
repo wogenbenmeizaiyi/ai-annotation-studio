@@ -126,6 +126,7 @@ import {
 } from 'echarts/components'
 import VChart from 'vue-echarts'
 import TrainingAnalysisDialog from '@/components/common/TrainingAnalysisDialog.vue'
+import { refreshSession } from '@/api/session'
 import type { TrainTaskStatus, TrainEpochMetric, TrainStreamData } from '@/types/train'
 import type { ComposeOption } from 'echarts/core'
 import type { LineSeriesOption } from 'echarts/charts'
@@ -497,8 +498,16 @@ const closeSSE = () => {
   }
 }
 
-const connectSSE = () => {
+const connectSSE = async () => {
   closeSSE()
+
+  try {
+    await refreshSession()
+  } catch (error) {
+    console.error('训练监控会话续期失败:', error)
+    window.dispatchEvent(new CustomEvent('studio:session-expired'))
+    return
+  }
 
   eventSource = createTrainEventSource(props.taskId)
 
@@ -599,7 +608,7 @@ onMounted(async () => {
     errorMessage.value = task.error_message || ''
 
     if (isActiveTrainStatus(task.status)) {
-      connectSSE()
+      await connectSSE()
     } else if (task.status === 'FINISHED') {
       await loadMetrics()
     }

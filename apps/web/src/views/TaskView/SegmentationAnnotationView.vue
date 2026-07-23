@@ -12,6 +12,7 @@
             size="small"
             rounded="pill"
             class="mr-2"
+            :disabled="!canManage"
             @click="toggleType(type.id)"
           >
             <span
@@ -25,12 +26,12 @@
 
       <v-btn-toggle v-model="mode" mandatory class="mx-4" density="compact" variant="outlined">
         <v-btn value="draw" size="small">手动绘制</v-btn>
-        <v-btn value="smart" size="small">智能检测</v-btn>
+        <v-btn value="smart" size="small" :disabled="!canManage">智能检测</v-btn>
       </v-btn-toggle>
 
       <div class="action-buttons">
         <v-btn
-          v-if="mode === 'smart'"
+          v-if="canManage && mode === 'smart'"
           variant="outlined"
           color="warning"
           size="small"
@@ -40,6 +41,7 @@
           重置
         </v-btn>
         <v-btn
+          v-if="canManage"
           variant="outlined"
           color="error"
           size="small"
@@ -64,6 +66,7 @@
         :current-type-id="currentTypeId"
         :polygons="annotations"
         :min-points="minPoints"
+        :editable="canManage"
         @polygon-complete="handlePolygonComplete"
         @polygon-update="handlePolygonUpdate"
         @polygon-click="handlePolygonClick"
@@ -193,6 +196,7 @@
                 <span class="text-caption text-medium-emphasis">#{{ index + 1 }}</span>
               </div>
               <v-btn
+                v-if="canManage"
                 icon="mdi-close"
                 size="x-small"
                 variant="text"
@@ -275,6 +279,7 @@ const smartContainerRef = ref<HTMLDivElement | null>(null)
 const smartWrapperRef = ref<HTMLDivElement | null>(null)
 const smartImageEl = ref<HTMLImageElement | null>(null)
 const smartCanvasRef = ref<HTMLCanvasElement | null>(null)
+const canManage = ref(false)
 
 const typeConfigs = ref<TypeConfig[]>([])
 
@@ -405,6 +410,7 @@ const getPolygonCenter = (polygon: PolygonAnnotation): Point => {
 
 const getTaskDimensionType = async () => {
   const res = await getTask(taskName.value)
+  canManage.value = res.can_manage
   typeConfigs.value = categoriesToTypeConfigs(res.categories)
   if (typeConfigs.value.length > 0) {
     currentTypeId.value = typeConfigs.value[0]?.id

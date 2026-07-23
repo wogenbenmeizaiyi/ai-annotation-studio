@@ -4,7 +4,8 @@ import time
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.image import router as image_router
@@ -15,6 +16,7 @@ from app.api.train_task import train_task_service
 from app.api.train_agent import router as train_agent_router
 from app.api.sam3 import router as sam3_router
 from app.core.config import settings
+from app.core.auth import authenticate_request
 from app.services.agent.auto_analysis_service import auto_analysis_service
 
 
@@ -73,12 +75,47 @@ def create_app() -> FastAPI:
     # CORS
     app.add_middleware(
         CORSMiddleware,
-        # allow_origins=["http://localhost:5173"],
-        allow_origins=["*"],
+        allow_origins=settings.AUTH_ALLOWED_ORIGINS,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    @app.exception_handler(HTTPException)
+    async def http_exception_handler(
+        request: Request,
+        exc: HTTPException,
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"code": exc.status_code, "message": str(exc.detail), "data": None},
+        )
+
+    @app.middleware("http")
+    async def authenticate_requests(request: Request, call_next):
+        if request.url.path.startswith("/api") or request.url.path in {
+            "/docs",
+            "/openapi.json",
+            "/redoc",
+        }:
+            try:
+                request.state.auth = authenticate_request(request)
+                if request.url.path in {"/docs", "/openapi.json", "/redoc"} and not (
+                    request.state.auth.is_super_admin
+                ):
+                    raise HTTPException(
+                        status_code=403,
+                        detail="仅超级管理员可查看完整 API 文档",
+                    )
+            except HTTPException as exc:
+                return JSONResponse(
+                    status_code=exc.status_code,
+                    content={"code": exc.status_code, "message": str(exc.detail), "data": None},
+                )
+        response = await call_next(request)
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        return response
 
     # 请求日志中间件
     @app.middleware("http")

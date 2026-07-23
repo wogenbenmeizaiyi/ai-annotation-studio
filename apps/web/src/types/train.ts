@@ -25,6 +25,8 @@ export interface TrainTask {
   output_path: string
   created_at: string
   updated_at: string
+  owner_subject_id: string | null
+  can_manage: boolean
 }
 
 export interface TrainEpochMetric {

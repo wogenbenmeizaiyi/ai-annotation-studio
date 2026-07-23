@@ -12,6 +12,7 @@
             size="small"
             rounded="pill"
             class="mr-2"
+            :disabled="!canManage"
             @click="toggleType(type.id)"
           >
             <span
@@ -25,12 +26,12 @@
 
       <v-btn-toggle v-model="mode" mandatory class="mx-4" density="compact" variant="outlined">
         <v-btn value="draw" size="small">手动绘制</v-btn>
-        <v-btn value="smart" size="small">智能检测</v-btn>
+        <v-btn value="smart" size="small" :disabled="!canManage">智能检测</v-btn>
       </v-btn-toggle>
 
       <div class="action-buttons">
         <v-btn
-          v-if="mode === 'smart'"
+          v-if="canManage && mode === 'smart'"
           variant="outlined"
           color="warning"
           size="small"
@@ -40,6 +41,7 @@
           重置
         </v-btn>
         <v-btn
+          v-if="canManage"
           variant="outlined"
           color="error"
           size="small"
@@ -61,7 +63,7 @@
         :type-configs="typeConfigs"
         :current-type-id="currentTypeId"
         :rectangles="annotations"
-        :editable="isAnnotationLoaded && !isAnnotationLoading && !isSwitchingImage"
+        :editable="canManage && isAnnotationLoaded && !isAnnotationLoading && !isSwitchingImage"
         :min-rect-size="10"
         @rect-complete="handleRectComplete"
         @rect-update="handleRectUpdate"
@@ -163,6 +165,7 @@
                 <span class="annotation-index">#{{ index + 1 }}</span>
               </div>
               <v-btn
+                v-if="canManage"
                 icon="mdi-close"
                 size="x-small"
                 variant="text"
@@ -218,6 +221,7 @@ type SamBbox = { bbox: number[]; points?: number[][]; area?: number }
 
 const WS_BASE_URL = createWebSocketUrl('/ws/sam3')
 const mode = ref<DetectMode>('draw')
+const canManage = ref(false)
 const samWs = ref<WebSocket | null>(null)
 const samStatus = ref<SamStatus>('disconnected')
 const samPoints = ref<{ x: number; y: number; label: number }[]>([])
@@ -303,6 +307,7 @@ const waitForDrawableWrapperSize = async () => {
 
 const getTaskDimensionType = async () => {
   const res = await getTask(taskName.value)
+  canManage.value = res.can_manage
   typeConfigs.value = res.categories.map((c) => ({
     id: c.id,
     label: c.name,

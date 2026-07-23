@@ -4,8 +4,10 @@ import asyncio
 import json
 import logging
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 
+from app.core.auth import authenticate_websocket, require_s3_key_manager
+from app.core.config import settings
 from app.core.sam3.sam3_service import SAM3Service
 
 logger = logging.getLogger(__name__)
@@ -31,6 +33,17 @@ async def sam3_websocket(ws: WebSocket):
     - 重置交互点:
         {"action": "reset"}
     """
+    allowed_origins = {origin.rstrip("/") for origin in settings.AUTH_ALLOWED_ORIGINS}
+    request_origin = ws.headers.get("origin", "").rstrip("/")
+    if request_origin not in allowed_origins:
+        await ws.close(code=1008, reason="origin not allowed")
+        return
+
+    try:
+        auth = authenticate_websocket(ws)
+    except HTTPException:
+        await ws.close(code=1008, reason="authentication required")
+        return
     await ws.accept()
     current_s3_key = None
     logger.info("SAM3 WebSocket 连接建立")
@@ -45,6 +58,13 @@ async def sam3_websocket(ws: WebSocket):
                 s3_key = msg.get("s3_key")
                 if not s3_key:
                     await ws.send_json({"success": False, "message": "缺少 s3_key"})
+                    continue
+                try:
+                    require_s3_key_manager(s3_key, auth)
+                except HTTPException as exc:
+                    await ws.send_json(
+                        {"success": False, "status": "error", "message": str(exc.detail)}
+                    )
                     continue
 
                 previous_s3_key = current_s3_key

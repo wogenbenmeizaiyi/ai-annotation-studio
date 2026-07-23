@@ -40,6 +40,7 @@ class TaskStore:
         description: str,
         detection_type: str,
         categories: Optional[List] = None,
+        owner_subject_id: Optional[str] = None,
     ) -> ApiResponse:
         db: Session = SessionLocal()
         try:
@@ -54,7 +55,10 @@ class TaskStore:
                 )
 
             task = TaskModel(
-                name=name, description=description, detection_type=detection_type
+                name=name,
+                description=description,
+                detection_type=detection_type,
+                owner_subject_id=owner_subject_id,
             )
             db.add(task)
             db.flush()
@@ -155,7 +159,7 @@ class TaskStore:
         finally:
             db.close()
 
-    def load_all(self) -> list:
+    def load_all(self, viewer_subject_id: str, viewer_is_admin: bool) -> list:
         db: Session = SessionLocal()
         try:
             tasks = (
@@ -164,11 +168,24 @@ class TaskStore:
                 .order_by(TaskModel.id)
                 .all()
             )
-            return [t.to_dict() for t in tasks]
+            values = []
+            for task in tasks:
+                value = task.to_dict()
+                value["can_manage"] = viewer_is_admin or (
+                    task.owner_subject_id is not None
+                    and task.owner_subject_id == viewer_subject_id
+                )
+                values.append(value)
+            return values
         finally:
             db.close()
 
-    def get_by_name(self, name: str):
+    def get_by_name(
+        self,
+        name: str,
+        viewer_subject_id: Optional[str] = None,
+        viewer_is_admin: bool = False,
+    ):
         db: Session = SessionLocal()
         try:
             task = (
@@ -178,7 +195,13 @@ class TaskStore:
             )
             if not task:
                 return None
-            return task.to_dict()
+            value = task.to_dict()
+            if viewer_subject_id is not None:
+                value["can_manage"] = viewer_is_admin or (
+                    task.owner_subject_id is not None
+                    and task.owner_subject_id == viewer_subject_id
+                )
+            return value
         finally:
             db.close()
 

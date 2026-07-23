@@ -183,6 +183,7 @@ interface Props {
   minPoints?: number
   showLabels?: boolean
   showGuides?: boolean
+  editable?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -192,6 +193,7 @@ const props = withDefaults(defineProps<Props>(), {
   minPoints: 3,
   showLabels: true,
   showGuides: true,
+  editable: true,
 })
 
 // Emits
@@ -246,6 +248,7 @@ const handleMouseMove = (event: MouseEvent) => {
 }
 
 const handleMouseDown = (event: MouseEvent) => {
+  if (!props.editable) return
   const pos = getRelativePosition(event)
   if (!pos) return
 
@@ -256,6 +259,7 @@ const handleMouseDown = (event: MouseEvent) => {
 }
 
 const handleRightClick = (event: MouseEvent) => {
+  if (!props.editable) return
   event.preventDefault()
 
   // 如果点数不足，不能完成
@@ -292,6 +296,7 @@ const handleRightClick = (event: MouseEvent) => {
 }
 
 const removePoint = (index: number) => {
+  if (!props.editable) return
   if (currentPoints.value.length <= 1) {
     currentPoints.value = []
     return

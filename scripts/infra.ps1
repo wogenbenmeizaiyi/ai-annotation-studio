@@ -65,10 +65,41 @@ function Invoke-Compose {
     }
 }
 
+function Get-InfraEnvironmentValue {
+    param([Parameter(Mandatory)][string]$Name)
+
+    foreach ($line in [IO.File]::ReadAllLines($InfraEnvironment)) {
+        if ($line -match "^$([Regex]::Escape($Name))=(.*)$") {
+            return $Matches[1].Trim()
+        }
+    }
+    throw "Missing $Name in $InfraEnvironment"
+}
+
 function Start-LocalInfrastructure {
     Ensure-InfraEnvironment
     Assert-DockerReady
+    $databaseUser = Get-InfraEnvironmentValue 'LOCAL_POSTGRES_USER'
     Invoke-Compose @('up', '-d', '--wait', 'postgres', 'rabbitmq', 'redis', 'minio')
+    foreach ($databaseName in @(
+        'annotation_studio_local',
+        'recognition_service_local',
+        'auth_service_local'
+    )) {
+        $exists = & docker compose --env-file $InfraEnvironment -f $ComposeFile `
+            exec -T postgres psql -U $databaseUser -d postgres -tAc `
+            "SELECT 1 FROM pg_database WHERE datname='$databaseName'"
+        if ($LASTEXITCODE -ne 0) {
+            throw "Failed to inspect local PostgreSQL database: $databaseName"
+        }
+        if (-not (($exists -join '').Trim())) {
+            & docker compose --env-file $InfraEnvironment -f $ComposeFile `
+                exec -T postgres createdb -U $databaseUser $databaseName
+            if ($LASTEXITCODE -ne 0) {
+                throw "Failed to create local PostgreSQL database: $databaseName"
+            }
+        }
+    }
     Invoke-Compose @('run', '--rm', 'minio-init')
 
     Write-Host 'Local infrastructure is ready:' -ForegroundColor Green

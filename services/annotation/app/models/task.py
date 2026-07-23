@@ -12,6 +12,9 @@ class TaskModel(Base):
     name = Column(String(255), unique=True, nullable=False, comment="任务名称")
     description = Column(Text, default="", comment="任务描述")
     detection_type = Column(String(100), nullable=False, comment="检测类型")
+    owner_subject_id = Column(
+        String(36), nullable=True, index=True, comment="创建者认证主体UUID"
+    )
     is_deleted = Column(Boolean, default=False, comment="是否已删除")
     created_at = Column(
         DateTime,
@@ -41,6 +44,7 @@ class TaskModel(Base):
             "name": self.name,
             "detection_type": self.detection_type,
             "description": self.description,
+            "owner_subject_id": self.owner_subject_id,
             "categories": [c.to_dict() for c in self.categories],
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,

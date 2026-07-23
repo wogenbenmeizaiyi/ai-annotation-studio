@@ -63,6 +63,7 @@
 
         <v-card-actions>
           <v-btn
+            v-if="task.can_manage"
             variant="tonal"
             color="primary"
             prepend-icon="mdi-play"
@@ -73,6 +74,7 @@
           </v-btn>
           <v-spacer />
           <v-btn
+            v-if="task.can_manage"
             variant="tonal"
             color="error"
             prepend-icon="mdi-delete-outline"

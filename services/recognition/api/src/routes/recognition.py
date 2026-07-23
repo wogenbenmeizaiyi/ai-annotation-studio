@@ -1,6 +1,7 @@
 import logging
 import math
 import asyncio
+import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Literal
@@ -13,6 +14,8 @@ from core.storage.model_cache import ModelUnavailableError, ensure_model_availab
 from core.mq import (
     get_recognition_task_result,
 )
+from core.config import config
+from core.public_security import validate_public_images
 from core.schemas.recognition import (
     RecognitionImageResult,
     RecognitionMethod,
@@ -138,9 +141,13 @@ async def _recognize_uploaded_image(
     project_name: str,
     confidence: float,
 ) -> dict:
+    if file.content_type and not file.content_type.lower().startswith("image/"):
+        raise HTTPException(status_code=415, detail="只允许上传图片文件")
     image_data = await file.read()
     if not image_data:
         raise HTTPException(status_code=400, detail="file is required")
+    if len(image_data) > config.PUBLIC_MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="图片文件不能超过 20 MB")
 
     if not text:
         raise HTTPException(status_code=400, detail="text is required")
@@ -195,6 +202,8 @@ async def _recognize_uploaded_model(
     file: UploadFile,
     confidence: float,
 ) -> dict:
+    if file.content_type and not file.content_type.lower().startswith("image/"):
+        raise HTTPException(status_code=415, detail="只允许上传图片文件")
     method = DIRECT_METHOD_BY_TYPE.get(model.detection_type)
     if method is None:
         raise HTTPException(status_code=400, detail="不支持的模型识别类型")
@@ -202,11 +211,14 @@ async def _recognize_uploaded_model(
     try:
         await asyncio.to_thread(ensure_model_available, model)
     except ModelUnavailableError as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
+        logger.warning("public direct model unavailable model_uuid=%s", model.uuid)
+        raise HTTPException(status_code=503, detail="模型暂时不可用") from exc
 
     image_data = await file.read()
     if not image_data:
         raise HTTPException(status_code=400, detail="图片文件不能为空")
+    if len(image_data) > config.PUBLIC_MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="图片文件不能超过 20 MB")
 
     service = DIRECT_SERVICE_MAP[method]
     try:
@@ -236,12 +248,22 @@ async def _recognize_uploaded_model(
         service.release_resources()
 
 
+def _validate_task_id(task_id: str) -> None:
+    try:
+        value = uuid.UUID(task_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="任务 UUID 无效") from exc
+    if value.version != 4 or str(value) != task_id.lower():
+        raise HTTPException(status_code=400, detail="任务 UUID 必须是标准 UUIDv4")
+
+
 @router.post("/recognize")
 async def submit_recognition(
     request: RecognitionSubmitRequest,
     db: Session = Depends(get_db),
 ):
     """提交识别任务，并记录任务状态。"""
+    validate_public_images(request.images)
     return _submit_recorded_request(
         RecognitionRecordedSubmitRequest(
             detection_type=request.detection_type,
@@ -257,6 +279,7 @@ def _submit_recorded_request(
     request: RecognitionRecordedSubmitRequest,
     db: Session,
 ) -> dict:
+    validate_public_images(request.images)
     logger.info("submit recognition request received")
     try:
         task_id = submit_recorded_recognition(request, db)
@@ -308,6 +331,7 @@ async def submit_multimodal(
 
 @router.get("/result")
 async def get_result(task_id: str = Query(...)):
+    _validate_task_id(task_id)
     result = get_recognition_task_result(task_id)
 
     if result.state == "PENDING":
@@ -345,7 +369,7 @@ async def get_result(task_id: str = Query(...)):
         return RecognitionStatus(
             task_id=task_id,
             status="failed",
-            error=meta.get("error", str(result.info)),
+            error="识别任务执行失败",
             progress=TaskProgress(
                 processed=meta.get("processed", 0),
                 total=meta.get("total", 0),
@@ -440,6 +464,7 @@ async def list_task_coco_results(
     db: Session = Depends(get_db),
 ):
     """通过查询参数分页查询单个任务的对外 COCO 结果。"""
+    _validate_task_id(task_id)
     return _list_task_coco_results(task_id, page, page_size, db)
 
 

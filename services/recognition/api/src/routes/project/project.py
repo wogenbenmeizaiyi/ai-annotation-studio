@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, selectinload
 
 from core.db import get_db
+from core.public_security import validate_public_images
 from core.storage.model_cache import ModelUnavailableError, ensure_model_available
 from core.schemas.recognition import (
     RecognitionCombination,
@@ -125,8 +126,7 @@ async def submit_project_recognition(
     db: Session = Depends(get_db),
 ) -> dict:
     """项目侧识别任务入口，按模型 UUID 创建识别子任务。"""
-    if not request.images:
-        raise HTTPException(status_code=400, detail="图片列表不能为空")
+    validate_public_images(request.images)
 
     models = _get_models(request.model_ids, db)
     task_specs = [(model, _get_task_text(model)) for model in models]

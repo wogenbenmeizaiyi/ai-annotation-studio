@@ -15,6 +15,8 @@ export interface Assignment {
   updateTime: Date
   description: string
   detection_type: string
+  owner_subject_id: string | null
+  can_manage: boolean
 }
 
 export interface AssignmentDTO {
@@ -25,6 +27,8 @@ export interface AssignmentDTO {
   created_at: string // ISO 字符串
   updated_at: string
   detection_type: string
+  owner_subject_id: string | null
+  can_manage: boolean
 }
 
 export type NewTask = {

@@ -62,6 +62,28 @@ build:recognition-deps:
         docker push "$DEPS_IMAGE"
       fi
 
+build:auth-deps:
+  extends: .docker-job
+  stage: dependencies
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "deploy"'
+      changes:
+        paths:
+          - services/auth/**/*
+          - .gitlab-ci.yml
+    - when: never
+  script:
+    - cd services/auth
+    - DEPS_HASH="$(sha256sum requirements.txt Dockerfile.deps | sha256sum | cut -d' ' -f1)"
+    - DEPS_IMAGE="$IMAGE_PREFIX/auth-deps:$DEPS_HASH"
+    - |
+      if docker manifest inspect "$DEPS_IMAGE" >/dev/null 2>&1; then
+        echo "Reusing $DEPS_IMAGE"
+      else
+        docker build --pull -f Dockerfile.deps -t "$DEPS_IMAGE" .
+        docker push "$DEPS_IMAGE"
+      fi
+
 build:web:
   extends: .docker-job
   stage: build
@@ -94,6 +116,26 @@ build:annotation:
     - DEPS_HASH="$(sha256sum requirements.txt Dockerfile.deps assets/fonts/Arial.Unicode.ttf | sha256sum | cut -d' ' -f1)"
     - BASE_IMAGE="$IMAGE_PREFIX/annotation-deps:$DEPS_HASH"
     - IMAGE="$IMAGE_PREFIX/annotation:$CI_COMMIT_SHA"
+    - docker build --pull --build-arg "BASE_IMAGE=$BASE_IMAGE" --label "org.opencontainers.image.revision=$CI_COMMIT_SHA" --label "org.opencontainers.image.source=$CI_PROJECT_URL" -t "$IMAGE" .
+    - docker push "$IMAGE"
+
+build:auth:
+  extends: .docker-job
+  stage: build
+  needs:
+    - build:auth-deps
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "deploy"'
+      changes:
+        paths:
+          - services/auth/**/*
+          - .gitlab-ci.yml
+    - when: never
+  script:
+    - cd services/auth
+    - DEPS_HASH="$(sha256sum requirements.txt Dockerfile.deps | sha256sum | cut -d' ' -f1)"
+    - BASE_IMAGE="$IMAGE_PREFIX/auth-deps:$DEPS_HASH"
+    - IMAGE="$IMAGE_PREFIX/auth:$CI_COMMIT_SHA"
     - docker build --pull --build-arg "BASE_IMAGE=$BASE_IMAGE" --label "org.opencontainers.image.revision=$CI_COMMIT_SHA" --label "org.opencontainers.image.source=$CI_PROJECT_URL" -t "$IMAGE" .
     - docker push "$IMAGE"
 
@@ -182,6 +224,8 @@ publish:deploy-tags:
       optional: true
     - job: build:annotation
       optional: true
+    - job: build:auth
+      optional: true
     - job: build:recognition-api
       optional: true
     - job: build:recognition-worker
@@ -194,6 +238,7 @@ publish:deploy-tags:
         paths:
           - apps/web/**/*
           - services/annotation/**/*
+          - services/auth/**/*
           - services/recognition/**/*
           - .gitlab-ci.yml
     - when: never
@@ -223,6 +268,7 @@ publish:deploy-tags:
 
       if [ "$ci_changed" -eq 1 ] || changed apps/web; then promote web; fi
       if [ "$ci_changed" -eq 1 ] || changed services/annotation; then promote annotation; fi
+      if [ "$ci_changed" -eq 1 ] || changed services/auth; then promote auth; fi
       if [ "$ci_changed" -eq 1 ] || changed services/recognition/api services/recognition/core services/recognition/engine services/recognition/alembic services/recognition/alembic.ini services/recognition/requirements.txt services/recognition/Dockerfile.deps services/recognition/Dockerfile.api; then promote recognition-api; fi
       if [ "$ci_changed" -eq 1 ] || changed services/recognition/worker services/recognition/core services/recognition/engine services/recognition/requirements.txt services/recognition/Dockerfile.deps services/recognition/Dockerfile.worker; then promote recognition-worker; fi
       if [ "$ci_changed" -eq 1 ] || changed services/recognition/consumer services/recognition/core services/recognition/requirements.txt services/recognition/Dockerfile.deps services/recognition/Dockerfile.consumer; then promote recognition-consumer; fi

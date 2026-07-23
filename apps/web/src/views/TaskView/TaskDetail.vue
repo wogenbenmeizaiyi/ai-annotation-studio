@@ -21,6 +21,7 @@
         />
 
         <v-btn
+          v-if="canManage"
           color="secondary"
           variant="tonal"
           size="small"
@@ -30,6 +31,7 @@
           选择图片
         </v-btn>
         <v-btn
+          v-if="canManage"
           color="secondary"
           variant="tonal"
           size="small"
@@ -45,12 +47,13 @@
           prepend-icon="mdi-pencil"
           @click="handleStartAnnotation"
         >
-          开始标注
+          {{ canManage ? '开始标注' : '查看标注' }}
         </v-btn>
       </div>
 
       <div class="stats-section">
         <v-btn
+          v-if="canManage"
           color="error"
           variant="tonal"
           size="small"
@@ -108,6 +111,7 @@
             >
               <td class="col-select text-center">
                 <v-checkbox-btn
+                  v-if="canManage"
                   :model-value="isImageSelected(item.id)"
                   density="compact"
                   color="primary"
@@ -149,9 +153,10 @@
                   class="mr-2"
                   @click.stop="startAnnotation(item)"
                 >
-                  开始标注
+                  {{ canManage ? '开始标注' : '查看标注' }}
                 </v-btn>
                 <v-btn
+                  v-if="canManage"
                   variant="outlined"
                   color="error"
                   size="x-small"
@@ -229,7 +234,7 @@
 </template>
 
 <script setup lang="ts">
-import { getImageList, uploadImages, deleteImage } from '@/api/services'
+import { getImageList, getTask, uploadImages, deleteImage } from '@/api/services'
 import { ref, computed, nextTick, onBeforeUnmount, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
@@ -276,6 +281,7 @@ const PAGINATION_HEIGHT = 56
 const TABLE_LAYOUT_BUFFER = 8
 
 const pageSize = ref(7)
+const canManage = ref(false)
 const currentPage = ref(getInitialCurrentPage())
 const totalImagesCount = ref(0)
 const annotatedImagesCount = ref(0)
@@ -467,6 +473,11 @@ const updatePageSizeByLayout = async () => {
 }
 
 onMounted(async () => {
+  try {
+    canManage.value = (await getTask(taskName.value)).can_manage
+  } catch (error) {
+    console.error('加载任务权限失败:', error)
+  }
   await syncCurrentPageToRoute()
 
   await Promise.all([

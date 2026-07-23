@@ -4,11 +4,12 @@ import json
 from dataclasses import asdict
 from typing import Optional
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.auth import AuthContext, get_request_auth, require_task_manager, require_train_manager
 from app.core.s3.s3_client import S3Client
 from app.db.database import SessionLocal
 from app.schemas.train_task import CreateTaskRequest
@@ -32,10 +33,19 @@ def _sse_data(data: dict) -> str:
     return f"data: {json.dumps(safe_data, ensure_ascii=False, allow_nan=False)}\n\n"
 
 
+def _serialize_train_task(task: TrainTaskModel, auth: AuthContext) -> dict:
+    data = task.to_dict()
+    owner_subject_id = task.task.owner_subject_id if task.task else None
+    data["owner_subject_id"] = owner_subject_id
+    data["can_manage"] = auth.can_manage(owner_subject_id)
+    return data
+
+
 @router.post("/create")
-def create_task(request: CreateTaskRequest):
+def create_task(payload: CreateTaskRequest, request: Request):
+    require_task_manager(payload.task_name, get_request_auth(request))
     try:
-        task_id = train_task_service.start_training(request)
+        task_id = train_task_service.start_training(payload)
         return _api_response(
             ApiResponse.success_response(
                 data={"task_id": task_id},
@@ -47,7 +57,7 @@ def create_task(request: CreateTaskRequest):
 
 
 @router.get("/list")
-def list_train_tasks(task_name: Optional[str] = None):
+def list_train_tasks(request: Request, task_name: Optional[str] = None):
     """查询训练任务列表
 
     - 不传 task_name：返回所有训练任务（按创建时间倒序）
@@ -68,8 +78,11 @@ def list_train_tasks(task_name: Optional[str] = None):
             query = query.filter(TrainTaskModel.task_id == task.id)
 
         tasks = query.order_by(TrainTaskModel.created_at.desc()).all()
+        auth = get_request_auth(request)
         return _api_response(
-            ApiResponse.success_response(data=[t.to_dict() for t in tasks])
+            ApiResponse.success_response(
+                data=[_serialize_train_task(task, auth) for task in tasks]
+            )
         )
     except Exception as e:
         return _api_response(ApiResponse.error_response(f"查询失败: {e}", code=500))
@@ -125,7 +138,7 @@ async def stream_training(task_id: int):
 
 
 @router.get("/{task_id}/metrics")
-def get_training_metrics(task_id: int):
+def get_training_metrics(task_id: int, request: Request):
     """查询某训练任务的所有轮次指标（从数据库）"""
     db: Session = SessionLocal()
     try:
@@ -148,7 +161,7 @@ def get_training_metrics(task_id: int):
         )
 
         result = {
-            "task": task.to_dict(),
+            "task": _serialize_train_task(task, get_request_auth(request)),
             "metrics": [m.to_dict() for m in metrics],
         }
         return _api_response(ApiResponse.success_response(data=result))
@@ -199,8 +212,9 @@ def download_model(task_id: int):
 
 
 @router.delete("/{task_id}")
-def delete_train_task(task_id: int):
+def delete_train_task(task_id: int, request: Request):
     """逻辑删除训练任务及其每轮指标（模型文件保留在 S3 上）"""
+    require_train_manager(task_id, get_request_auth(request))
     db: Session = SessionLocal()
     try:
         task = (
@@ -237,8 +251,9 @@ def delete_train_task(task_id: int):
 
 
 @router.post("/{task_id}/retry")
-def retry_train_task(task_id: int):
+def retry_train_task(task_id: int, request: Request):
     """重新启动失败或等待中的训练任务。"""
+    require_train_manager(task_id, get_request_auth(request))
     try:
         train_task_service.retry_training_task(task_id)
         return _api_response(
@@ -252,7 +267,7 @@ def retry_train_task(task_id: int):
 
 
 @router.get("/{task_id}")
-def get_task_status(task_id: int):
+def get_task_status(task_id: int, request: Request):
     """查询训练任务状态"""
     db: Session = SessionLocal()
     try:
@@ -263,7 +278,11 @@ def get_task_status(task_id: int):
         )
         if not task:
             return _api_response(ApiResponse.error_response("训练任务不存在", code=404))
-        return _api_response(ApiResponse.success_response(data=task.to_dict()))
+        return _api_response(
+            ApiResponse.success_response(
+                data=_serialize_train_task(task, get_request_auth(request))
+            )
+        )
     except Exception as e:
         return _api_response(ApiResponse.error_response(f"查询失败: {e}", code=500))
     finally:

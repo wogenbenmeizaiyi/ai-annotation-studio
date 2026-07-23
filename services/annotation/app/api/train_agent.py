@@ -1,10 +1,16 @@
 from dataclasses import asdict
 import logging
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
 from app.api.train_task import train_task_service
+from app.core.auth import (
+    get_request_auth,
+    require_proposal_manager,
+    require_task_manager,
+    require_train_manager,
+)
 from app.models.api_response import ApiResponse
 from app.schemas.train_agent import (
     AgentChatRequest,
@@ -39,10 +45,11 @@ def _response(data=None, message: str = "成功", code: int = 200) -> JSONRespon
 
 
 @router.post("/chat")
-async def chat(request: AgentChatRequest):
+async def chat(payload: AgentChatRequest, request: Request):
     """与YOLO训练助手对话，生成参数草案或解释训练质量。"""
+    require_task_manager(payload.task_name, get_request_auth(request))
     try:
-        result = await agent.chat(request)
+        result = await agent.chat(payload)
         return _response(result.model_dump(mode="json"))
     except ValueError as exc:
         return _response(message=str(exc), code=400)
@@ -94,9 +101,11 @@ def get_auto_analysis(train_task_id: int):
 @router.post("/analysis/{train_task_id}/proposal")
 async def create_optimization_proposal(
     train_task_id: int,
-    request: CreateOptimizationProposalRequest,
+    payload: CreateOptimizationProposalRequest,
+    request: Request,
 ):
     """以本次训练配置和质量报告为基线，生成下一轮训练草案；不会启动训练。"""
+    require_train_manager(train_task_id, get_request_auth(request))
     db = SessionLocal()
     try:
         train_task = db.get(TrainTaskModel, train_task_id)
@@ -110,7 +119,7 @@ async def create_optimization_proposal(
         result = await agent.chat(
             AgentChatRequest(
                 task_name=task_name,
-                message=request.instruction,
+                message=payload.instruction,
                 train_task_id=train_task_id,
             )
         )
@@ -134,11 +143,14 @@ async def create_optimization_proposal(
 
 
 @router.post("/proposals/{proposal_id}/confirm")
-def confirm_proposal(proposal_id: str, request: ConfirmProposalRequest):
+def confirm_proposal(
+    proposal_id: str, payload: ConfirmProposalRequest, request: Request
+):
     """由页面确认完整参数，并签发五分钟内单次有效的启动令牌。"""
+    require_proposal_manager(proposal_id, get_request_auth(request))
     try:
         return _response(
-            proposal_service.confirm(proposal_id, request.expected_config),
+            proposal_service.confirm(proposal_id, payload.expected_config),
             message="训练参数已经确认",
         )
     except ValueError as exc:
@@ -149,11 +161,12 @@ def confirm_proposal(proposal_id: str, request: ConfirmProposalRequest):
 
 
 @router.post("/proposals/{proposal_id}/start")
-def start_proposal(proposal_id: str, request: StartProposalRequest):
+def start_proposal(proposal_id: str, payload: StartProposalRequest, request: Request):
     """校验一次性确认令牌后创建并启动训练任务。"""
+    require_proposal_manager(proposal_id, get_request_auth(request))
     try:
         return _response(
-            proposal_service.start(proposal_id, request.confirmation_token),
+            proposal_service.start(proposal_id, payload.confirmation_token),
             message="训练任务已进入队列",
         )
     except ValueError as exc:

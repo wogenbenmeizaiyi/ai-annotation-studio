@@ -46,7 +46,9 @@
               <td>
                 <div class="font-weight-medium">{{ model.name }}</div>
                 <div class="resource-id-row">
-                  <span class="model-uuid" :title="model.uuid">{{ formatResourceId(model.uuid) }}</span>
+                  <span class="model-uuid" :title="model.uuid">{{
+                    formatResourceId(model.uuid)
+                  }}</span>
                   <v-tooltip text="复制 ID" location="top">
                     <template #activator="{ props }">
                       <v-btn
@@ -78,10 +80,22 @@
                 <v-btn size="small" variant="text" color="primary" @click="openTestDialog(model)">
                   试跑
                 </v-btn>
-                <v-btn size="small" variant="text" color="primary" @click="openEditDialog(model)">
+                <v-btn
+                  v-if="model.can_manage"
+                  size="small"
+                  variant="text"
+                  color="primary"
+                  @click="openEditDialog(model)"
+                >
                   编辑
                 </v-btn>
-                <v-btn size="small" variant="text" color="error" @click="handleDeleteModel(model)">
+                <v-btn
+                  v-if="model.can_manage"
+                  size="small"
+                  variant="text"
+                  color="error"
+                  @click="handleDeleteModel(model)"
+                >
                   删除
                 </v-btn>
               </td>

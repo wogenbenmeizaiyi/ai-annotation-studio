@@ -15,6 +15,9 @@ class RecognitionTaskRecord(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     task_id: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     status: Mapped[str] = mapped_column(String(32), index=True, default="pending")
+    owner_subject_id: Mapped[str | None] = mapped_column(
+        String(36), nullable=True, index=True
+    )
     callback_url: Mapped[str] = mapped_column(String(2048))
     request_payload: Mapped[dict] = mapped_column(JSONB)
     result_payload: Mapped[dict | None] = mapped_column(JSONB, nullable=True)

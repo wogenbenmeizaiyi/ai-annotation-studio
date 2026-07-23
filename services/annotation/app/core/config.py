@@ -64,5 +64,33 @@ class Settings:
     # ===== SAM3 模型 =====
     SAM3_MODEL_PATH: str = os.getenv("SAM3_MODEL_PATH", "models/sam3.pt")
 
+    # ===== 用户认证 =====
+    AUTH_PUBLIC_KEY_PATH: str = os.getenv(
+        "AUTH_PUBLIC_KEY_PATH", ".local/keys/auth-public.pem"
+    )
+    AUTH_ISSUER: str = os.getenv("AUTH_ISSUER", "ai-annotation-studio-auth")
+    AUTH_AUDIENCE: str = os.getenv("AUTH_AUDIENCE", "ai-annotation-studio")
+    AUTH_ACCESS_COOKIE: str = os.getenv("AUTH_ACCESS_COOKIE", "studio_access")
+    AUTH_CSRF_COOKIE: str = os.getenv("AUTH_CSRF_COOKIE", "studio_csrf")
+    AUTH_REDIS_HOST: str = os.getenv("AUTH_REDIS_HOST", os.getenv("REDIS_HOST", "localhost"))
+    AUTH_REDIS_PORT: int = int(os.getenv("AUTH_REDIS_PORT", os.getenv("REDIS_PORT", "6379")))
+    AUTH_REDIS_PASSWORD: str = os.getenv(
+        "AUTH_REDIS_PASSWORD", os.getenv("REDIS_PASSWORD", "")
+    )
+    AUTH_REDIS_DB: int = int(os.getenv("AUTH_REDIS_DB", "3"))
+    AUTH_ALLOWED_ORIGINS: list[str] = [
+        value.strip()
+        for value in os.getenv(
+            "AUTH_ALLOWED_ORIGINS",
+            "http://localhost:5173,http://127.0.0.1:5173",
+        ).split(",")
+        if value.strip()
+    ]
+
+    @property
+    def AUTH_REDIS_URL(self) -> str:
+        password = f":{self.AUTH_REDIS_PASSWORD}@" if self.AUTH_REDIS_PASSWORD else ""
+        return f"redis://{password}{self.AUTH_REDIS_HOST}:{self.AUTH_REDIS_PORT}/{self.AUTH_REDIS_DB}"
+
 
 settings = Settings()
