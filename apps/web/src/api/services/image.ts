@@ -1,3 +1,4 @@
+import type { AxiosProgressEvent } from 'axios'
 import type { ImageItem, ImageUploadResponse, ImageListPage } from '@/types/ImageItem'
 import http from '../http'
 
@@ -8,6 +9,7 @@ export const getImage = async (imageId: number): Promise<ImageItem> => {
 export const uploadImages = async (
   taskName: string,
   files: File[],
+  onProgress?: (loaded: number, total?: number) => void,
 ): Promise<ImageUploadResponse> => {
   const formData = new FormData()
   formData.append('task_name', taskName)
@@ -15,6 +17,7 @@ export const uploadImages = async (
 
   const res = await http.post<ImageUploadResponse>('/image/upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
+    onUploadProgress: (event: AxiosProgressEvent) => onProgress?.(event.loaded, event.total),
   })
   return res
 }

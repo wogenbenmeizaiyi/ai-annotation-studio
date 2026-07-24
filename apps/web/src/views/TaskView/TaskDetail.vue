@@ -182,48 +182,150 @@
       </div>
     </div>
 
-    <!-- 文件预览弹窗 -->
-    <v-dialog v-model="showPreview" max-width="800" persistent>
-      <v-card>
-        <v-card-title class="d-flex align-center justify-space-between">
-          <span v-if="uploading">
-            上传中 {{ uploadProgress.done }} / {{ uploadProgress.total }}
-          </span>
-          <span v-else>选中 {{ filePreviews.length }} 张图片，确认上传？</span>
+    <!-- 图片上传弹窗 -->
+    <v-dialog v-model="showPreview" max-width="760" persistent class="upload-dialog">
+      <v-card class="upload-card" elevation="0">
+        <header class="upload-header">
+          <div class="upload-heading">
+            <div class="upload-heading-icon">
+              <v-icon :icon="uploading ? 'mdi-cloud-upload' : 'mdi-image-multiple'" size="22" />
+            </div>
+            <div>
+              <div class="upload-eyebrow">{{ uploading ? '正在上传' : '准备上传' }}</div>
+              <h2>上传任务图片</h2>
+              <p>
+                {{
+                  uploading
+                    ? `正在处理第 ${uploadProgress.currentBatch} / ${uploadProgress.totalBatches} 批`
+                    : '确认文件后，图片将保存到当前标注任务'
+                }}
+              </p>
+            </div>
+          </div>
           <v-btn
             v-if="!uploading"
             icon="mdi-close"
             variant="text"
             size="small"
+            aria-label="关闭上传窗口"
             @click="cancelUpload"
           />
-        </v-card-title>
+        </header>
 
-        <v-divider />
+        <v-card-text class="upload-body">
+          <div v-if="uploading" class="upload-progress-view">
+            <div class="upload-progress-panel">
+              <div class="upload-progress-heading">
+                <div>
+                  <span class="upload-progress-label">上传进度</span>
+                  <strong>
+                    第 {{ uploadProgress.currentBatch }} 批，共
+                    {{ uploadProgress.currentBatchFiles }} 张
+                  </strong>
+                </div>
+                <span class="upload-progress-percent">{{ uploadPercent }}%</span>
+              </div>
 
-        <v-card-text>
-          <div v-if="uploading" class="text-center py-4">
-            <v-progress-linear :model-value="uploadPercent" color="success" height="12" rounded />
-            <div class="text-body-2 text-medium-emphasis mt-2">
-              {{ uploadPercent }}% ({{ uploadProgress.done }} / {{ uploadProgress.total }})
+              <v-progress-linear
+                :model-value="uploadPercent"
+                color="primary"
+                bg-color="surface-light"
+                height="8"
+                rounded
+              />
+
+              <div class="upload-progress-meta">
+                <span>
+                  已完成 {{ uploadProgress.completedFiles }} /
+                  {{ uploadProgress.totalFiles }} 张
+                </span>
+                <span>
+                  {{ formatFileSize(uploadProgress.uploadedBytes) }} /
+                  {{ formatFileSize(uploadProgress.totalBytes) }}
+                </span>
+              </div>
+            </div>
+
+            <div class="upload-progress-note">
+              <v-icon icon="mdi-information-outline" size="18" />
+              <div>
+                <strong>图片正在写入对象存储</strong>
+                <span>上传完成前请保持此页面打开，大文件可能需要稍等片刻。</span>
+              </div>
             </div>
           </div>
-          <div v-else class="file-preview-list">
-            <div v-for="(file, index) in filePreviews" :key="index" class="file-preview-item">
-              <v-icon icon="mdi-file-image" size="small" class="mr-2" />
-              {{ file.name }}
+
+          <div v-else class="upload-preview-view">
+            <div class="upload-summary">
+              <div class="upload-summary-item">
+                <v-icon icon="mdi-image-outline" size="19" />
+                <div>
+                  <span>图片数量</span>
+                  <strong>{{ filePreviews.length }} 张</strong>
+                </div>
+              </div>
+              <div class="upload-summary-item">
+                <v-icon icon="mdi-harddisk" size="19" />
+                <div>
+                  <span>文件总大小</span>
+                  <strong>{{ formatFileSize(selectedTotalBytes) }}</strong>
+                </div>
+              </div>
+              <div class="upload-summary-item">
+                <v-icon icon="mdi-layers-triple-outline" size="19" />
+                <div>
+                  <span>上传批次</span>
+                  <strong>{{ plannedBatchCount }} 批</strong>
+                </div>
+              </div>
+            </div>
+
+            <div class="upload-batch-hint">
+              <v-icon icon="mdi-auto-fix" size="17" />
+              系统将按文件数量和大小自动分批，避免大批量上传中断。
+            </div>
+
+            <div class="file-preview-header">
+              <span>待上传文件</span>
+              <span>{{ filePreviews.length }} 项</span>
+            </div>
+            <div class="file-preview-list">
+              <div
+                v-for="(file, index) in filePreviews"
+                :key="`${file.name}-${index}`"
+                class="file-preview-item"
+              >
+                <div class="file-preview-icon">
+                  <v-icon icon="mdi-file-image-outline" size="19" />
+                </div>
+                <span class="file-preview-name" :title="file.name">{{ file.name }}</span>
+                <span class="file-preview-size">{{ formatFileSize(file.size) }}</span>
+              </div>
             </div>
           </div>
         </v-card-text>
 
-        <v-divider />
-
-        <v-card-actions class="pa-4">
-          <v-btn variant="outlined" :disabled="uploading" @click="cancelUpload">取消</v-btn>
-          <v-spacer />
-          <v-btn color="success" :disabled="uploading" :loading="uploading" @click="confirmUpload">
-            {{ uploading ? '上传中...' : '确认上传' }}
-          </v-btn>
+        <v-card-actions class="upload-actions">
+          <template v-if="uploading">
+            <span class="upload-action-status">
+              <span class="upload-status-dot"></span>
+              正在上传，请勿关闭
+            </span>
+            <v-spacer />
+            <v-btn color="primary" variant="tonal" loading disabled>上传中</v-btn>
+          </template>
+          <template v-else>
+            <v-btn variant="text" @click="cancelUpload">取消</v-btn>
+            <v-spacer />
+            <v-btn
+              color="primary"
+              variant="flat"
+              prepend-icon="mdi-cloud-upload-outline"
+              @click="confirmUpload"
+            >
+              开始上传
+            </v-btn>
+          </template>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -521,12 +623,23 @@ const files = ref<File[]>([])
 const folderInput = ref<HTMLInputElement | null>(null)
 const fileInput = ref<HTMLInputElement | null>(null)
 const showPreview = ref(false)
-const filePreviews = ref<{ name: string }[]>([])
+const filePreviews = ref<{ name: string; size: number }[]>([])
 const uploading = ref(false)
-const uploadProgress = ref({ done: 0, total: 0 })
+const uploadProgress = ref({
+  completedFiles: 0,
+  totalFiles: 0,
+  uploadedBytes: 0,
+  totalBytes: 0,
+  currentBatch: 0,
+  totalBatches: 0,
+  currentBatchFiles: 0,
+})
 const uploadPercent = computed(() =>
-  uploadProgress.value.total > 0
-    ? Math.round((uploadProgress.value.done / uploadProgress.value.total) * 100)
+  uploadProgress.value.totalBytes > 0
+    ? Math.min(
+        100,
+        Math.round((uploadProgress.value.uploadedBytes / uploadProgress.value.totalBytes) * 100),
+      )
     : 0,
 )
 
@@ -544,8 +657,12 @@ const isImageFile = (file: File) => {
 }
 
 const showPreviewDialog = (fileList: File[]) => {
+  if (fileList.length === 0) {
+    snackbar.showSnackbar('没有找到可上传的图片文件', 'warning')
+    return
+  }
   files.value = fileList
-  filePreviews.value = files.value.map((f) => ({ name: f.name }))
+  filePreviews.value = files.value.map((file) => ({ name: file.name, size: file.size }))
   showPreview.value = true
 }
 
@@ -554,13 +671,15 @@ const onFolderSelect = (e: Event) => {
   if (target.files) {
     showPreviewDialog(Array.from(target.files).filter(isImageFile))
   }
+  target.value = ''
 }
 
 const onFileSelect = (e: Event) => {
   const target = e.target as HTMLInputElement
   if (target.files) {
-    showPreviewDialog(Array.from(target.files))
+    showPreviewDialog(Array.from(target.files).filter(isImageFile))
   }
+  target.value = ''
 }
 
 const MAX_BATCH_FILES = 20
@@ -594,32 +713,59 @@ const createUploadBatches = (selectedFiles: File[]) => {
 }
 
 const formatUploadSize = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(1)} MiB`
+const selectedTotalBytes = computed(() =>
+  files.value.reduce((total, file) => total + file.size, 0),
+)
+const plannedBatchCount = computed(() => createUploadBatches(files.value).length)
 
 const confirmUpload = async () => {
   if (!files.value.length) return
   uploading.value = true
-  uploadProgress.value = { done: 0, total: files.value.length }
   const batches = createUploadBatches(files.value)
+  const totalBytes = files.value.reduce((total, file) => total + file.size, 0)
+  uploadProgress.value = {
+    completedFiles: 0,
+    totalFiles: files.value.length,
+    uploadedBytes: 0,
+    totalBytes,
+    currentBatch: 1,
+    totalBatches: batches.length,
+    currentBatchFiles: batches[0]?.length ?? 0,
+  }
   console.log(
     `[上传] 开始上传，共 ${files.value.length} 张图片，拆分为 ${batches.length} 批`,
   )
 
   let failedCount = 0
   let completedCount = 0
+  let completedBytes = 0
   for (const [batchIndex, batch] of batches.entries()) {
     const batchNum = batchIndex + 1
     const batchBytes = batch.reduce((total, file) => total + file.size, 0)
+    const completedBytesBeforeBatch = completedBytes
+    uploadProgress.value.currentBatch = batchNum
+    uploadProgress.value.currentBatchFiles = batch.length
     console.log(
       `[上传] 第 ${batchNum}/${batches.length} 批，${batch.length} 张，${formatUploadSize(batchBytes)}`,
     )
     try {
-      await uploadImages(taskName.value, batch)
+      await uploadImages(taskName.value, batch, (loaded, requestTotal) => {
+        const batchRatio =
+          requestTotal && requestTotal > 0 ? loaded / requestTotal : loaded / batchBytes
+        const uploadedBatchBytes = Math.min(batchBytes, batchBytes * batchRatio)
+        uploadProgress.value.uploadedBytes = Math.min(
+          totalBytes,
+          completedBytesBeforeBatch + uploadedBatchBytes,
+        )
+      })
     } catch (error) {
       failedCount++
       console.error(`[上传] 第 ${batchNum} 批上传失败:`, error)
     }
     completedCount += batch.length
-    uploadProgress.value.done = completedCount
+    completedBytes += batchBytes
+    uploadProgress.value.completedFiles = completedCount
+    uploadProgress.value.uploadedBytes = completedBytes
   }
 
   uploading.value = false
@@ -627,10 +773,14 @@ const confirmUpload = async () => {
 
   if (failedCount > 0) {
     console.error(`[上传] 完成，${failedCount} 批失败`)
+    snackbar.showSnackbar(`上传完成，但有 ${failedCount} 批失败，请检查后重试`, 'error')
   } else {
     console.log('[上传] 全部上传成功')
+    snackbar.showSnackbar(`已成功上传 ${files.value.length} 张图片`, 'success')
   }
 
+  files.value = []
+  filePreviews.value = []
   currentPage.value = 1
   await Promise.all([loadCurrentPageData(), loadImageStats()])
 }
@@ -871,16 +1021,317 @@ const onImageLoad = (item: ImageItem) => {
   border-top: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
 }
 
+.upload-card {
+  overflow: hidden;
+  color: var(--studio-ink);
+  background: var(--studio-surface-1) !important;
+  border: 1px solid var(--studio-hairline-strong);
+  border-radius: 14px !important;
+}
+
+.upload-header {
+  min-height: 88px;
+  padding: 18px 20px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  background: var(--studio-surface-1);
+  border-bottom: 1px solid var(--studio-hairline);
+}
+
+.upload-heading {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+}
+
+.upload-heading-icon {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  display: grid;
+  place-items: center;
+  color: var(--studio-primary-hover);
+  background: rgba(94, 106, 210, 0.12);
+  border: 1px solid rgba(94, 106, 210, 0.24);
+  border-radius: 10px;
+}
+
+.upload-eyebrow {
+  margin-bottom: 2px;
+  color: var(--studio-primary-hover);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.upload-heading h2 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.upload-heading p {
+  margin: 4px 0 0;
+  color: var(--studio-ink-subtle);
+  font-size: 12px;
+}
+
+.upload-body {
+  padding: 18px 20px 20px !important;
+}
+
+.upload-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.upload-summary-item {
+  min-width: 0;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--studio-ink-subtle);
+  background: var(--studio-surface-2);
+  border: 1px solid var(--studio-hairline);
+  border-radius: 9px;
+}
+
+.upload-summary-item div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.upload-summary-item span {
+  font-size: 11px;
+}
+
+.upload-summary-item strong {
+  overflow: hidden;
+  color: var(--studio-ink);
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.upload-batch-hint {
+  margin: 12px 0 16px;
+  padding: 9px 11px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--studio-ink-subtle);
+  font-size: 12px;
+  background: rgba(94, 106, 210, 0.07);
+  border: 1px solid rgba(94, 106, 210, 0.16);
+  border-radius: 8px;
+}
+
+.file-preview-header {
+  margin-bottom: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--studio-ink-subtle);
+  font-size: 11px;
+  font-weight: 600;
+}
+
 .file-preview-list {
-  max-height: 300px;
+  max-height: 280px;
   overflow-y: auto;
+  background: var(--studio-canvas);
+  border: 1px solid var(--studio-hairline);
+  border-radius: 9px;
 }
 
 .file-preview-item {
+  min-height: 44px;
+  padding: 7px 10px;
   display: flex;
   align-items: center;
-  padding: 6px 0;
+  gap: 10px;
   font-size: 13px;
-  border-bottom: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-bottom: 1px solid var(--studio-hairline);
+}
+
+.file-preview-item:last-child {
+  border-bottom: 0;
+}
+
+.file-preview-item:hover {
+  background: var(--studio-surface-2);
+}
+
+.file-preview-icon {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  display: grid;
+  place-items: center;
+  color: var(--studio-primary-hover);
+  background: rgba(94, 106, 210, 0.1);
+  border-radius: 7px;
+}
+
+.file-preview-name {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  color: var(--studio-ink-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-preview-size {
+  flex: 0 0 auto;
+  color: var(--studio-ink-tertiary);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.upload-progress-view {
+  min-height: 260px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 14px;
+}
+
+.upload-progress-panel {
+  padding: 18px;
+  background: var(--studio-surface-2);
+  border: 1px solid var(--studio-hairline-strong);
+  border-radius: 11px;
+}
+
+.upload-progress-heading {
+  margin-bottom: 14px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.upload-progress-heading > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.upload-progress-label {
+  color: var(--studio-ink-tertiary);
+  font-size: 11px;
+}
+
+.upload-progress-heading strong {
+  color: var(--studio-ink-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.upload-progress-percent {
+  color: var(--studio-ink);
+  font-size: 24px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.upload-progress-panel :deep(.v-progress-linear__determinate) {
+  transition: width 180ms ease;
+}
+
+.upload-progress-meta {
+  margin-top: 10px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--studio-ink-subtle);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.upload-progress-note {
+  padding: 12px 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: var(--studio-ink-subtle);
+  background: var(--studio-canvas);
+  border: 1px solid var(--studio-hairline);
+  border-radius: 9px;
+}
+
+.upload-progress-note div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.upload-progress-note strong {
+  color: var(--studio-ink-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.upload-progress-note span {
+  font-size: 11px;
+}
+
+.upload-actions {
+  min-height: 62px;
+  padding: 12px 20px !important;
+  background: var(--studio-surface-1);
+  border-top: 1px solid var(--studio-hairline);
+}
+
+.upload-action-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--studio-ink-subtle);
+  font-size: 12px;
+}
+
+.upload-status-dot {
+  width: 7px;
+  height: 7px;
+  background: var(--studio-primary-hover);
+  border-radius: 50%;
+  box-shadow: 0 0 0 4px rgba(94, 106, 210, 0.12);
+  animation: upload-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes upload-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@media (max-width: 600px) {
+  .upload-header,
+  .upload-body {
+    padding-right: 14px !important;
+    padding-left: 14px !important;
+  }
+
+  .upload-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .upload-progress-meta {
+    flex-direction: column;
+    gap: 3px;
+  }
 }
 </style>
