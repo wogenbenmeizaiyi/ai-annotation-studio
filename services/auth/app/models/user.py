@@ -20,6 +20,7 @@ class User(Base):
     display_name = Column(String(100), nullable=False)
     password_hash = Column(String(512), nullable=False)
     role = Column(String(32), nullable=False, default="user", index=True)
+    is_platform_owner = Column(Boolean, nullable=False, default=False)
     status = Column(String(32), nullable=False, default="pending", index=True)
     token_version = Column(Integer, nullable=False, default=1)
     must_change_password = Column(Boolean, nullable=False, default=False)
@@ -30,9 +31,7 @@ class User(Base):
     approved_at = Column(DateTime(timezone=True), nullable=True)
     approved_by = Column(String(36), nullable=True)
 
-    sessions = relationship(
-        "RefreshSession", back_populates="user", cascade="all, delete-orphan"
-    )
+    sessions = relationship("RefreshSession", back_populates="user", cascade="all, delete-orphan")
 
 
 class RefreshSession(Base):

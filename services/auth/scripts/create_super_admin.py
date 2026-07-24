@@ -21,19 +21,22 @@ def main() -> None:
         normalized = normalize_username(username)
         if db.query(User).filter(User.username_normalized == normalized).first():
             raise SystemExit("用户名已存在")
+        is_platform_owner = db.query(User).filter(User.is_platform_owner.is_(True)).first() is None
         user = User(
             username=username,
             username_normalized=normalized,
             display_name=display_name,
             password_hash=hash_password(password),
             role="super_admin",
+            is_platform_owner=is_platform_owner,
             status="active",
         )
         db.add(user)
         db.commit()
         db.refresh(user)
         sync_user_state(user)
-        print(f"超级管理员已创建: {user.username} ({user.id})")
+        account_type = "平台所有者" if user.is_platform_owner else "超级管理员"
+        print(f"{account_type}已创建: {user.username} ({user.id})")
     finally:
         db.close()
 

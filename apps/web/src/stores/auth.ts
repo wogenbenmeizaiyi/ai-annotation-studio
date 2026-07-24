@@ -16,6 +16,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   const isAuthenticated = computed(() => user.value?.status === 'active')
   const isSuperAdmin = computed(() => user.value?.role === 'super_admin')
+  const isPlatformOwner = computed(() => user.value?.is_platform_owner === true)
 
   const loadCurrentUser = async (): Promise<void> => {
     if (loading.value) return
@@ -64,6 +65,7 @@ export const useAuthStore = defineStore('auth', () => {
     loading,
     isAuthenticated,
     isSuperAdmin,
+    isPlatformOwner,
     loadCurrentUser,
     login,
     register,

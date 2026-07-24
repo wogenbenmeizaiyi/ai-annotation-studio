@@ -34,13 +34,18 @@
           </div>
         </template>
         <template #item.role="{ item }">
+          <span v-if="item.is_platform_owner" class="owner-pill">
+            <v-icon icon="mdi-shield-crown-outline" size="14" />
+            平台所有者
+          </span>
           <v-select
+            v-else
             :model-value="item.role"
             :items="roleOptions"
             density="compact"
             hide-details
             class="role-select"
-            :disabled="busyId === item.id"
+            :disabled="busyId === item.id || !auth.isPlatformOwner"
             @update:model-value="(role) => changeRole(item, role)"
           />
         </template>
@@ -52,8 +57,12 @@
         <template #item.created_at="{ item }">{{ formatDate(item.created_at) }}</template>
         <template #item.actions="{ item }">
           <div class="row-actions">
+            <span v-if="!canManageAccount(item)" class="protected-note">
+              <v-icon icon="mdi-lock-outline" size="14" />
+              {{ item.is_platform_owner ? '所有者账号受保护' : '仅所有者可管理' }}
+            </span>
             <v-btn
-              v-if="item.status === 'pending'"
+              v-else-if="item.status === 'pending'"
               size="small"
               color="primary"
               variant="tonal"
@@ -75,7 +84,13 @@
               @click="runAction(item.id, 'disable')"
               >禁用</v-btn
             >
-            <v-btn size="small" variant="text" @click="openReset(item)">重置密码</v-btn>
+            <v-btn
+              v-if="canManageAccount(item)"
+              size="small"
+              variant="text"
+              @click="openReset(item)"
+              >重置密码</v-btn
+            >
           </div>
         </template>
       </v-data-table>
@@ -116,6 +131,7 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { useAuthStore } from '@/stores/auth'
 import {
   approveUser,
   disableUser,
@@ -152,6 +168,7 @@ const statusText: Record<UserStatus, string> = {
 }
 
 const users = ref<StudioUser[]>([])
+const auth = useAuthStore()
 const statusFilter = ref<UserStatus | undefined>()
 const page = ref(1)
 const total = ref(0)
@@ -164,6 +181,8 @@ const resetTarget = ref<StudioUser | null>(null)
 const newPassword = ref('')
 
 const formatDate = (value: string) => new Date(value).toLocaleString('zh-CN', { hour12: false })
+const canManageAccount = (user: StudioUser): boolean =>
+  !user.is_platform_owner && (auth.isPlatformOwner || user.role !== 'super_admin')
 
 const loadUsers = async (targetPage = page.value) => {
   loading.value = true
@@ -197,7 +216,7 @@ const runAction = async (id: string, action: 'approve' | 'enable' | 'disable') =
 }
 
 const changeRole = async (user: StudioUser, role: UserRole) => {
-  if (role === user.role) return
+  if (role === user.role || !auth.isPlatformOwner || user.is_platform_owner) return
   busyId.value = user.id
   try {
     await updateUserRole(user.id, role)
@@ -210,6 +229,7 @@ const changeRole = async (user: StudioUser, role: UserRole) => {
 }
 
 const openReset = (user: StudioUser) => {
+  if (!canManageAccount(user)) return
   resetTarget.value = user
   newPassword.value = ''
   resetDialog.value = true
@@ -282,6 +302,20 @@ onMounted(() => loadUsers())
 }
 .role-select {
   width: 150px;
+}
+.owner-pill,
+.protected-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--studio-ink-subtle);
+  font-size: 12px;
+}
+.owner-pill {
+  padding: 5px 8px;
+  color: rgb(var(--v-theme-primary));
+  background: rgba(var(--v-theme-primary), 0.1);
+  border-radius: 6px;
 }
 .status-pill {
   display: inline-flex;

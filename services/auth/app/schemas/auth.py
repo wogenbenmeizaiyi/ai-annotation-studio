@@ -38,6 +38,7 @@ class UserResponse(BaseModel):
     username: str
     display_name: str
     role: str
+    is_platform_owner: bool
     status: str
     must_change_password: bool
     created_at: str

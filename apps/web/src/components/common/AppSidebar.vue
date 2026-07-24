@@ -85,7 +85,10 @@ const auth = useAuthStore()
 const userInitial = computed(() =>
   (auth.user?.display_name || auth.user?.username || 'U').slice(0, 1),
 )
-const roleText = computed(() => (auth.isSuperAdmin ? '超级管理员' : '普通用户'))
+const roleText = computed(() => {
+  if (auth.isPlatformOwner) return '平台所有者'
+  return auth.isSuperAdmin ? '超级管理员' : '普通用户'
+})
 
 const handleLogout = async () => {
   await auth.logout()

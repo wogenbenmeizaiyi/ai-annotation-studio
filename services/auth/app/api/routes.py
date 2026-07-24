@@ -62,6 +62,7 @@ def _serialize_user(user: User) -> dict:
         username=user.username,
         display_name=user.display_name,
         role=user.role,
+        is_platform_owner=user.is_platform_owner,
         status=user.status,
         must_change_password=user.must_change_password,
         created_at=user.created_at.isoformat(),
@@ -169,14 +170,32 @@ def _ensure_admin_survives(db: Session, target: User) -> None:
     if target.role != "super_admin" or target.status != "active":
         return
     active_admins = (
-        db.query(User)
-        .filter(User.role == "super_admin", User.status == "active")
-        .count()
+        db.query(User).filter(User.role == "super_admin", User.status == "active").count()
     )
     if active_admins <= 1:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="不能禁用或降级最后一个有效超级管理员",
+        )
+
+
+def _ensure_account_action_allowed(
+    current: AuthenticatedUser,
+    target: User,
+    *,
+    operation: str,
+) -> None:
+    if target.is_platform_owner:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="平台所有者账号受保护，请由所有者本人修改密码",
+        )
+    if current.model.is_platform_owner:
+        return
+    if operation == "role" or target.role == "super_admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="只有平台所有者可以管理超级管理员",
         )
 
 
@@ -337,10 +356,7 @@ def list_users(
         query = query.filter(User.status == status_filter)
     total = query.count()
     users = (
-        query.order_by(User.created_at.desc())
-        .offset((page - 1) * page_size)
-        .limit(page_size)
-        .all()
+        query.order_by(User.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
     )
     data = UserPageResponse(
         items=[UserResponse(**_serialize_user(user)) for user in users],
@@ -362,6 +378,7 @@ def _apply_status_change(
 ) -> dict:
     require_csrf(request, current)
     target = _get_user_or_404(db, user_id)
+    _ensure_account_action_allowed(current, target, operation="status")
     if new_status == "disabled":
         _ensure_admin_survives(db, target)
     target.status = new_status
@@ -417,6 +434,7 @@ def update_role(
     if payload.role not in {"super_admin", "user"}:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="角色无效")
     target = _get_user_or_404(db, user_id)
+    _ensure_account_action_allowed(current, target, operation="role")
     if target.role == "super_admin" and payload.role != "super_admin":
         _ensure_admin_survives(db, target)
     target.role = payload.role
@@ -438,6 +456,7 @@ def reset_password(
 ) -> dict:
     require_csrf(request, current)
     target = _get_user_or_404(db, user_id)
+    _ensure_account_action_allowed(current, target, operation="password")
     target.password_hash = hash_password(payload.new_password)
     target.must_change_password = True
     target.token_version += 1

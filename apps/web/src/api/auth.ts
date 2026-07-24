@@ -9,6 +9,7 @@ export interface StudioUser {
   username: string
   display_name: string
   role: UserRole
+  is_platform_owner: boolean
   status: UserStatus
   must_change_password: boolean
   created_at: string
