@@ -179,16 +179,23 @@
     </div>
 
     <v-dialog v-model="showResults" max-width="1120" scrollable>
-      <v-card class="result-dialog">
-        <v-card-title class="d-flex align-center justify-space-between">
-          <div>
-            <div>识别结果</div>
-            <div class="text-caption text-medium-emphasis mt-1">{{ selectedTask?.task_id }}</div>
+      <v-card class="studio-dialog-card result-dialog">
+        <v-card-title class="studio-dialog-header">
+          <div class="studio-dialog-heading">
+            <div class="studio-dialog-title">识别结果</div>
+            <div v-if="selectedTask" class="studio-dialog-subtitle">
+              任务 ID：<span class="studio-dialog-context">{{ selectedTask.task_id }}</span>
+            </div>
           </div>
-          <v-btn icon="mdi-close" variant="text" size="small" @click="showResults = false" />
+          <v-btn
+            icon="mdi-close"
+            variant="text"
+            size="small"
+            class="studio-dialog-close"
+            @click="showResults = false"
+          />
         </v-card-title>
-        <v-divider />
-        <v-card-text class="pa-0 result-table-content">
+        <v-card-text class="studio-dialog-body result-table-content">
           <v-progress-linear
             v-if="resultsLoading"
             indeterminate
@@ -248,18 +255,23 @@
     </v-dialog>
 
     <v-dialog v-model="showResultDetail" max-width="1280" scrollable>
-      <v-card class="result-detail-dialog">
-        <v-card-title class="d-flex align-center justify-space-between">
-          <div>
-            <div>识别结果详情</div>
-            <div class="text-caption text-medium-emphasis mt-1">
+      <v-card class="studio-dialog-card result-detail-dialog">
+        <v-card-title class="studio-dialog-header">
+          <div class="studio-dialog-heading">
+            <div class="studio-dialog-title">识别结果详情</div>
+            <div class="studio-dialog-subtitle">
               {{ selectedResult ? getFileName(selectedResult.url) : '' }}
             </div>
           </div>
-          <v-btn icon="mdi-close" variant="text" size="small" @click="showResultDetail = false" />
+          <v-btn
+            icon="mdi-close"
+            variant="text"
+            size="small"
+            class="studio-dialog-close"
+            @click="showResultDetail = false"
+          />
         </v-card-title>
-        <v-divider />
-        <v-card-text class="pa-0 result-detail-content">
+        <v-card-text class="studio-dialog-body result-detail-content">
           <RecognitionResultPreview v-if="selectedResult" :result="selectedResult" />
           <v-expansion-panels v-if="selectedResult" variant="accordion" class="raw-result-panel">
             <v-expansion-panel title="原始 COCO 数据">
@@ -500,7 +512,7 @@ onMounted(() => {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  background: rgb(var(--v-theme-background));
+  background: var(--studio-canvas);
 }
 
 .ai-page-content {
@@ -581,9 +593,9 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: rgb(var(--v-theme-surface));
-  border: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
-  border-radius: 6px;
+  background: var(--studio-surface-1);
+  border: 1px solid var(--studio-hairline);
+  border-radius: 10px;
 }
 
 .table-loading-bar {
@@ -685,7 +697,7 @@ onMounted(() => {
 .pagination-bar {
   flex: 0 0 auto;
   padding: 8px;
-  border-top: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-top: 1px solid var(--studio-hairline);
 }
 
 .result-dialog {
@@ -694,7 +706,7 @@ onMounted(() => {
   flex-direction: column;
 }
 
-.result-dialog :deep(.v-card-text) {
+.result-table-content {
   position: relative;
   min-height: 0;
   display: flex;
@@ -703,6 +715,9 @@ onMounted(() => {
 
 .result-table {
   min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--studio-hairline);
+  border-radius: 8px;
 }
 
 .result-image-link {
@@ -732,10 +747,16 @@ onMounted(() => {
   min-height: 0;
   display: flex;
   flex-direction: column;
+  gap: 12px;
 }
 
 .raw-result-panel {
   flex: 0 0 auto;
+}
+
+.raw-result-panel :deep(.v-expansion-panel) {
+  border: 1px solid var(--studio-hairline);
+  border-radius: 8px;
 }
 
 .raw-result-panel :deep(.v-expansion-panel-text__wrapper) {

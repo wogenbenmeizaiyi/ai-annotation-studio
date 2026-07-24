@@ -18,12 +18,25 @@
             variant="outlined"
             class="type-filter"
           />
-          <v-btn variant="tonal" prepend-icon="mdi-plus" @click="openCreateConfigDialog">
-            新增模型配置
-          </v-btn>
-          <v-btn color="primary" prepend-icon="mdi-upload" @click="openUploadDialog"
-            >上传模型</v-btn
-          >
+          <div class="model-toolbar-buttons">
+            <v-btn
+              variant="outlined"
+              prepend-icon="mdi-plus"
+              class="model-toolbar-button"
+              @click="openCreateConfigDialog"
+            >
+              新增配置
+            </v-btn>
+            <v-btn
+              color="primary"
+              variant="tonal"
+              prepend-icon="mdi-upload-outline"
+              class="model-toolbar-button"
+              @click="openUploadDialog"
+            >
+              上传模型
+            </v-btn>
+          </div>
         </div>
       </div>
 
@@ -116,140 +129,211 @@
       </div>
     </div>
 
-    <v-dialog v-model="showModelDialog" max-width="680" persistent>
-      <v-card>
-        <v-card-title class="d-flex align-center justify-space-between">
-          <span>{{ modelDialogTitle }}</span>
-          <v-btn icon="mdi-close" variant="text" size="small" @click="showModelDialog = false" />
+    <v-dialog v-model="showModelDialog" max-width="780" persistent>
+      <v-card class="studio-dialog-card model-dialog-card">
+        <v-card-title class="studio-dialog-header">
+          <div class="studio-dialog-heading">
+            <div class="studio-dialog-title">{{ modelDialogTitle }}</div>
+            <p class="studio-dialog-subtitle">
+              {{
+                modelDialogMode === 'upload'
+                  ? '上传模型文件并补充识别配置'
+                  : '维护模型的识别类型、项目和说明信息'
+              }}
+            </p>
+          </div>
+          <v-btn
+            icon="mdi-close"
+            variant="text"
+            size="small"
+            class="studio-dialog-close"
+            @click="showModelDialog = false"
+          />
         </v-card-title>
-        <v-divider />
-        <v-card-text class="pt-5">
-          <v-select
-            v-model="modelForm.detectionType"
-            :items="dialogDetectionTypeOptions"
-            label="识别类型 *"
-            variant="outlined"
-            density="comfortable"
-            :disabled="modelDialogMode === 'edit'"
-          />
-          <v-file-input
-            v-if="modelDialogMode === 'upload' && requiresModelFile"
-            v-model="modelFile"
-            label="模型文件 *"
-            accept=".pt,.pth,.onnx,.engine,.bin"
-            prepend-icon="mdi-file-upload-outline"
-            variant="outlined"
-            density="comfortable"
-          />
-          <v-text-field
-            v-model="modelForm.name"
-            label="模型名称 *"
-            variant="outlined"
-            density="comfortable"
-          />
-          <v-text-field
-            v-if="modelDialogMode !== 'upload' && modelDialogMode !== 'edit' && requiresModelFile"
-            v-model="modelForm.modelFile"
-            label="模型文件名"
-            variant="outlined"
-            density="comfortable"
-          />
-          <v-text-field
-            v-if="modelDialogMode !== 'upload' && modelDialogMode !== 'edit' && requiresModelFile"
-            v-model="modelForm.storageKey"
-            label="S3 存储 Key"
-            variant="outlined"
-            density="comfortable"
-          />
-          <v-textarea
-            v-if="usesPrompt"
-            v-model="modelForm.prompt"
-            label="提示词"
-            hint="多模态识别时用于描述需要识别的目标"
-            variant="outlined"
-            density="comfortable"
-            rows="2"
-          />
-          <v-text-field
-            v-model="modelForm.projectName"
-            label="所属项目"
-            variant="outlined"
-            density="comfortable"
-          />
-          <v-textarea
-            v-model="modelForm.description"
-            label="模型说明"
-            rows="3"
-            variant="outlined"
-            density="comfortable"
-            hide-details
-          />
+        <v-card-text class="studio-dialog-body">
+          <section class="studio-dialog-section">
+            <div class="studio-dialog-section-heading">
+              <span class="studio-dialog-section-title">基础配置</span>
+              <span class="studio-dialog-section-copy">设置模型用途和在平台中的展示信息。</span>
+            </div>
+            <div class="studio-form-grid">
+              <v-select
+                v-model="modelForm.detectionType"
+                :items="dialogDetectionTypeOptions"
+                label="识别类型 *"
+                variant="outlined"
+                density="comfortable"
+                hide-details="auto"
+                :disabled="modelDialogMode === 'edit'"
+              />
+              <v-text-field
+                v-model="modelForm.name"
+                label="模型名称 *"
+                variant="outlined"
+                density="comfortable"
+                hide-details="auto"
+              />
+              <v-textarea
+                v-if="usesPrompt"
+                v-model="modelForm.prompt"
+                label="提示词"
+                hint="多模态识别时用于描述需要识别的目标"
+                variant="outlined"
+                density="comfortable"
+                rows="2"
+                hide-details="auto"
+                class="is-full-width"
+              />
+              <v-text-field
+                v-model="modelForm.projectName"
+                label="所属项目"
+                variant="outlined"
+                density="comfortable"
+                hide-details="auto"
+                class="is-full-width"
+              />
+              <v-textarea
+                v-model="modelForm.description"
+                label="模型说明"
+                rows="3"
+                variant="outlined"
+                density="comfortable"
+                hide-details="auto"
+                class="is-full-width"
+              />
+            </div>
+          </section>
+          <section
+            v-if="modelDialogMode !== 'edit' && requiresModelFile"
+            class="studio-dialog-section studio-dialog-section--secondary"
+          >
+            <div class="studio-dialog-section-heading">
+              <span class="studio-dialog-section-title">模型文件</span>
+              <span class="studio-dialog-section-copy">
+                {{
+                  modelDialogMode === 'upload'
+                    ? '选择要上传的模型文件，支持 PT、PTH、ONNX、Engine 和 Bin 格式。'
+                    : '填写已经存在于对象存储中的模型文件位置。'
+                }}
+              </span>
+            </div>
+            <v-file-input
+              v-if="modelDialogMode === 'upload'"
+              v-model="modelFile"
+              label="选择模型文件 *"
+              accept=".pt,.pth,.onnx,.engine,.bin"
+              prepend-icon="mdi-file-upload-outline"
+              variant="outlined"
+              density="comfortable"
+              hide-details="auto"
+            />
+            <div v-else class="studio-form-grid">
+              <v-text-field
+                v-model="modelForm.modelFile"
+                label="模型文件名"
+                variant="outlined"
+                density="comfortable"
+                hide-details="auto"
+              />
+              <v-text-field
+                v-model="modelForm.storageKey"
+                label="S3 存储 Key"
+                variant="outlined"
+                density="comfortable"
+                hide-details="auto"
+              />
+            </div>
+          </section>
         </v-card-text>
-        <v-divider />
-        <v-card-actions class="pa-4">
+        <v-card-actions class="studio-dialog-actions">
           <v-btn variant="text" @click="showModelDialog = false">取消</v-btn>
           <v-spacer />
-          <v-btn color="primary" :loading="saving" @click="saveModel">保存</v-btn>
+          <v-btn color="primary" variant="flat" :loading="saving" @click="saveModel">保存</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
 
     <v-dialog v-model="showTestDialog" :max-width="testPreview ? 1280 : 640" persistent scrollable>
-      <v-card :class="{ 'test-result-card': testPreview }">
-        <v-card-title class="d-flex align-center justify-space-between">
-          <span>试跑模型</span>
-          <v-btn icon="mdi-close" variant="text" size="small" @click="closeTestDialog" />
+      <v-card
+        class="studio-dialog-card model-test-dialog"
+        :class="{ 'test-result-card': testPreview }"
+      >
+        <v-card-title class="studio-dialog-header">
+          <div class="studio-dialog-heading">
+            <div class="studio-dialog-title">模型试跑</div>
+            <p class="studio-dialog-subtitle">
+              {{ testModel ? `使用「${testModel.name}」验证单张图片效果` : '验证模型识别效果' }}
+            </p>
+          </div>
+          <v-btn
+            icon="mdi-close"
+            variant="text"
+            size="small"
+            class="studio-dialog-close"
+            @click="closeTestDialog"
+          />
         </v-card-title>
-        <v-divider />
-        <v-card-text class="pt-5">
-          <div v-if="testModel" class="test-model-summary mb-4">
-            <span class="text-medium-emphasis">当前模型：</span>{{ testModel.name }}
-          </div>
-          <v-file-input
-            v-model="testFile"
-            label="测试图片 *"
-            accept="image/*"
-            prepend-icon="mdi-image-outline"
-            variant="outlined"
-            density="comfortable"
-            @update:model-value="handleTestFileChange"
-          />
-          <v-text-field
-            v-model.number="testConfidence"
-            label="置信度"
-            type="number"
-            min="0"
-            max="1"
-            step="0.05"
-            variant="outlined"
-            density="comfortable"
-            hide-details
-          />
-          <v-alert v-if="testResult" type="success" variant="tonal" class="mt-4">
-            {{
-              testPreview ? '识别完成，标注已绘制在测试图片上。' : '请求完成，可查看接口返回结果。'
-            }}
-          </v-alert>
-          <div v-if="testPreview" class="test-preview mt-4">
-            <RecognitionResultPreview
-              :result="testPreview"
-              :minimum-score="effectiveTestConfidence"
-            />
-            <v-expansion-panels variant="accordion" class="mt-3">
-              <v-expansion-panel title="原始 COCO 数据">
-                <v-expansion-panel-text>
-                  <pre class="json-preview">{{ testResult }}</pre>
-                </v-expansion-panel-text>
-              </v-expansion-panel>
-            </v-expansion-panels>
-          </div>
-          <pre v-else-if="testResult" class="json-preview mt-3">{{ testResult }}</pre>
+        <v-card-text class="studio-dialog-body model-test-body">
+          <section class="studio-dialog-section">
+            <div class="studio-dialog-section-heading">
+              <span class="studio-dialog-section-title">试跑参数</span>
+              <span class="studio-dialog-section-copy">选择一张图片并设置最低置信度。</span>
+            </div>
+            <div class="studio-form-grid">
+              <v-file-input
+                v-model="testFile"
+                label="测试图片 *"
+                accept="image/*"
+                prepend-icon="mdi-image-outline"
+                variant="outlined"
+                density="comfortable"
+                hide-details="auto"
+                class="is-full-width"
+                @update:model-value="handleTestFileChange"
+              />
+              <v-text-field
+                v-model.number="testConfidence"
+                label="置信度"
+                type="number"
+                min="0"
+                max="1"
+                step="0.05"
+                variant="outlined"
+                density="comfortable"
+                hide-details
+              />
+            </div>
+          </section>
+          <section v-if="testResult" class="studio-dialog-section test-result-section">
+            <v-alert type="success" variant="tonal" density="compact" class="test-success-alert">
+              {{
+                testPreview
+                  ? '识别完成，标注已绘制在测试图片上。'
+                  : '请求完成，可查看接口返回结果。'
+              }}
+            </v-alert>
+            <div v-if="testPreview" class="test-preview">
+              <RecognitionResultPreview
+                :result="testPreview"
+                :minimum-score="effectiveTestConfidence"
+              />
+              <v-expansion-panels variant="accordion" class="mt-3">
+                <v-expansion-panel title="原始 COCO 数据">
+                  <v-expansion-panel-text>
+                    <pre class="json-preview">{{ testResult }}</pre>
+                  </v-expansion-panel-text>
+                </v-expansion-panel>
+              </v-expansion-panels>
+            </div>
+            <pre v-else class="json-preview">{{ testResult }}</pre>
+          </section>
         </v-card-text>
-        <v-divider />
-        <v-card-actions class="pa-4">
+        <v-card-actions class="studio-dialog-actions">
           <v-btn variant="text" @click="closeTestDialog">关闭</v-btn>
           <v-spacer />
-          <v-btn color="primary" :loading="testing" @click="runModelTest">开始试跑</v-btn>
+          <v-btn color="primary" variant="flat" :loading="testing" @click="runModelTest">
+            开始试跑
+          </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -698,7 +782,7 @@ onUnmounted(() => {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  background: rgb(var(--v-theme-background));
+  background: var(--studio-canvas);
 }
 
 .ai-page-content {
@@ -736,6 +820,19 @@ onUnmounted(() => {
   gap: 8px;
 }
 
+.model-toolbar-buttons {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  padding-left: 8px;
+  border-left: 1px solid var(--studio-hairline);
+}
+
+.model-toolbar-button {
+  min-width: 112px;
+}
+
 .type-filter {
   width: 160px;
 }
@@ -747,9 +844,9 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: rgb(var(--v-theme-surface));
-  border: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
-  border-radius: 6px;
+  background: var(--studio-surface-1);
+  border: 1px solid var(--studio-hairline);
+  border-radius: 10px;
 }
 
 .table-loading-bar {
@@ -854,14 +951,11 @@ onUnmounted(() => {
 .pagination-bar {
   flex: 0 0 auto;
   padding: 8px;
-  border-top: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-top: 1px solid var(--studio-hairline);
 }
 
-.test-model-summary {
-  padding: 10px 12px;
-  background: var(--studio-surface-2);
-  border: 1px solid var(--studio-hairline);
-  border-radius: 8px;
+.model-dialog-card {
+  max-height: calc(100vh - 64px);
 }
 
 .json-preview {
@@ -875,6 +969,25 @@ onUnmounted(() => {
 
 .test-result-card {
   max-height: calc(100vh - 64px);
+}
+
+.model-test-dialog {
+  max-height: calc(100vh - 64px);
+}
+
+.model-test-body {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.test-result-section {
+  min-height: 0;
+}
+
+.test-success-alert {
+  color: rgb(var(--v-theme-success));
+  background: rgba(var(--v-theme-success), 0.08);
+  border: 1px solid rgba(var(--v-theme-success), 0.16);
 }
 
 .test-preview :deep(.preview-stage) {
@@ -902,6 +1015,18 @@ onUnmounted(() => {
 
   .toolbar-actions {
     flex-wrap: wrap;
+  }
+
+  .model-toolbar-buttons {
+    width: 100%;
+    margin-left: 0;
+    padding: 8px 0 0;
+    border-top: 1px solid var(--studio-hairline);
+    border-left: 0;
+  }
+
+  .model-toolbar-button {
+    flex: 1;
   }
 }
 </style>

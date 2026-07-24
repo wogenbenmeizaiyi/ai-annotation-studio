@@ -425,6 +425,44 @@ function Stop-ManagedProcess {
     & taskkill.exe /PID $Entry.Process.Id /T /F *> $null
 }
 
+function Wait-ManagedProcessPort {
+    param(
+        [Parameter(Mandatory)][string]$Name,
+        [Parameter(Mandatory)][int]$Port,
+        [int]$TimeoutSeconds = 300
+    )
+
+    Write-Host "Waiting for $Name to listen on port $Port..." -ForegroundColor Cyan
+    $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+    while ([DateTime]::UtcNow -lt $deadline) {
+        $entry = $ManagedProcesses | Where-Object { $_.Name -eq $Name } | Select-Object -First 1
+        if ($null -eq $entry) {
+            throw "Managed process not found: $Name"
+        }
+        if ($entry.Process.HasExited) {
+            throw "$Name exited before becoming ready. Check $LogDirectory\$Name.err.log."
+        }
+
+        $client = [Net.Sockets.TcpClient]::new()
+        try {
+            $connectTask = $client.ConnectAsync([Net.IPAddress]::Loopback, $Port)
+            if ($connectTask.Wait(500) -and $client.Connected) {
+                Write-Host "$Name is ready on port $Port." -ForegroundColor Green
+                return
+            }
+        }
+        catch {
+            # The process is still importing dependencies or starting Uvicorn.
+        }
+        finally {
+            $client.Dispose()
+        }
+        Start-Sleep -Milliseconds 500
+    }
+
+    throw "$Name did not listen on port $Port within $TimeoutSeconds seconds. Check $LogDirectory\$Name.err.log."
+}
+
 function Assert-TcpPortAvailable {
     param(
         [Parameter(Mandatory)][int]$Port,
@@ -596,6 +634,10 @@ try {
                 '-m', 'result_consumer'
             ) $RecognitionService $recognitionEnvironmentVariables
         }
+
+        Wait-ManagedProcessPort 'auth-api' 8787
+        Wait-ManagedProcessPort 'annotation-api' 8811
+        Wait-ManagedProcessPort 'recognition-api' 7987
     }
 
     if ($Profile -in @('web', 'full')) {

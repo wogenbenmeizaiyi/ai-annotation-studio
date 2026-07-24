@@ -25,7 +25,9 @@
           >
             刷新
           </v-btn>
-          <v-btn color="primary" prepend-icon="mdi-plus" @click="openCreateDialog">新建组合</v-btn>
+          <v-btn color="primary" variant="tonal" prepend-icon="mdi-plus" @click="openCreateDialog">
+            新建组合
+          </v-btn>
         </div>
       </div>
 
@@ -129,120 +131,161 @@
       </div>
     </div>
 
-    <v-dialog v-model="showCombinationDialog" max-width="720" persistent>
-      <v-card>
-        <v-card-title class="d-flex align-center justify-space-between">
-          <span>{{ editingCombination ? '编辑综合检测' : '新建综合检测' }}</span>
+    <v-dialog v-model="showCombinationDialog" max-width="800" persistent>
+      <v-card class="studio-dialog-card combination-dialog-card">
+        <v-card-title class="studio-dialog-header">
+          <div class="studio-dialog-heading">
+            <div class="studio-dialog-title">
+              {{ editingCombination ? '编辑综合检测' : '新建综合检测' }}
+            </div>
+            <p class="studio-dialog-subtitle">组合多个识别模型，形成可复用的检测流程。</p>
+          </div>
           <v-btn
             icon="mdi-close"
             variant="text"
             size="small"
+            class="studio-dialog-close"
             @click="showCombinationDialog = false"
           />
         </v-card-title>
-        <v-divider />
-        <v-card-text class="pt-5">
-          <v-text-field
-            v-model="combinationForm.name"
-            label="组合名称 *"
-            variant="outlined"
-            density="comfortable"
-          />
-          <v-text-field
-            v-model="combinationForm.projectName"
-            label="所属项目"
-            variant="outlined"
-            density="comfortable"
-          />
-          <v-select
-            v-model="modelTypeFilter"
-            :items="modelTypeFilterOptions"
-            label="模型类型"
-            variant="outlined"
-            density="comfortable"
-            hide-details
-            class="model-type-filter mb-4"
-          />
-          <v-select
-            v-model="selectedModelUuids"
-            :items="modelOptions"
-            :loading="modelsLoading"
-            label="选择模型 *"
-            multiple
-            chips
-            closable-chips
-            variant="outlined"
-            density="comfortable"
-            hide-details
-            class="model-selector"
-          >
-            <template #chip="{ props, item }">
-              <v-chip v-bind="props" :text="getSelectedModelTitle(item)" />
-            </template>
-          </v-select>
-          <div class="model-selection-hint">模型顺序会按当前选择顺序保存</div>
-          <v-textarea
-            v-model="combinationForm.description"
-            label="组合说明"
-            rows="3"
-            variant="outlined"
-            density="comfortable"
-            hide-details
-          />
+        <v-card-text class="studio-dialog-body">
+          <section class="studio-dialog-section">
+            <div class="studio-dialog-section-heading">
+              <span class="studio-dialog-section-title">基础信息</span>
+              <span class="studio-dialog-section-copy">用于在列表和外部调用中识别这套组合。</span>
+            </div>
+            <div class="studio-form-grid">
+              <v-text-field
+                v-model="combinationForm.name"
+                label="组合名称 *"
+                variant="outlined"
+                density="comfortable"
+                hide-details="auto"
+              />
+              <v-text-field
+                v-model="combinationForm.projectName"
+                label="所属项目"
+                variant="outlined"
+                density="comfortable"
+                hide-details="auto"
+              />
+              <v-textarea
+                v-model="combinationForm.description"
+                label="组合说明"
+                rows="3"
+                variant="outlined"
+                density="comfortable"
+                hide-details="auto"
+                class="is-full-width"
+              />
+            </div>
+          </section>
+          <section class="studio-dialog-section studio-dialog-section--secondary">
+            <div class="studio-dialog-section-heading">
+              <span class="studio-dialog-section-title">模型组合</span>
+              <span class="studio-dialog-section-copy">先按类型筛选，再按执行顺序选择模型。</span>
+            </div>
+            <v-select
+              v-model="modelTypeFilter"
+              :items="modelTypeFilterOptions"
+              label="模型类型"
+              variant="outlined"
+              density="comfortable"
+              hide-details
+              class="model-type-filter"
+            />
+            <v-select
+              v-model="selectedModelUuids"
+              :items="modelOptions"
+              :loading="modelsLoading"
+              label="选择模型 *"
+              multiple
+              chips
+              closable-chips
+              variant="outlined"
+              density="comfortable"
+              hide-details
+              class="model-selector"
+            >
+              <template #chip="{ props, item }">
+                <v-chip v-bind="props" :text="getSelectedModelTitle(item)" />
+              </template>
+            </v-select>
+            <div class="model-selection-hint">
+              <v-icon icon="mdi-drag-horizontal-variant" size="14" />
+              模型顺序会按当前选择顺序保存
+            </div>
+          </section>
         </v-card-text>
-        <v-divider />
-        <v-card-actions class="pa-4">
+        <v-card-actions class="studio-dialog-actions">
           <v-btn variant="text" @click="showCombinationDialog = false">取消</v-btn>
           <v-spacer />
-          <v-btn color="primary" :loading="saving" @click="saveCombination">保存</v-btn>
+          <v-btn color="primary" variant="flat" :loading="saving" @click="saveCombination">
+            保存
+          </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
 
     <v-dialog v-model="showDetailDialog" max-width="760">
-      <v-card>
-        <v-card-title class="d-flex align-center justify-space-between">
-          <span>综合检测详情</span>
-          <v-btn icon="mdi-close" variant="text" size="small" @click="showDetailDialog = false" />
+      <v-card class="studio-dialog-card combination-detail-dialog">
+        <v-card-title class="studio-dialog-header">
+          <div class="studio-dialog-heading">
+            <div class="studio-dialog-title">综合检测详情</div>
+            <p class="studio-dialog-subtitle">查看组合信息及模型执行顺序。</p>
+          </div>
+          <v-btn
+            icon="mdi-close"
+            variant="text"
+            size="small"
+            class="studio-dialog-close"
+            @click="showDetailDialog = false"
+          />
         </v-card-title>
-        <v-divider />
-        <v-card-text v-if="detailCombination" class="pt-5">
-          <div class="detail-row">
-            <span>组合名称</span><strong>{{ detailCombination.name }}</strong>
-          </div>
-          <div class="detail-row">
-            <span>所属项目</span><strong>{{ detailCombination.project_name || '-' }}</strong>
-          </div>
-          <div class="detail-row description-row">
-            <span>组合说明</span><strong>{{ detailCombination.description || '-' }}</strong>
-          </div>
-          <div class="text-subtitle-2 mt-5 mb-2">包含模型</div>
-          <v-table density="comfortable" class="detail-model-table">
-            <thead>
-              <tr>
-                <th>模型名称</th>
-                <th>类型</th>
-                <th>模型文件</th>
-                <th>说明</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="model in detailCombination.models" :key="model.uuid">
-                <td>{{ model.name }}</td>
-                <td>
-                  <v-chip
-                    size="x-small"
-                    variant="tonal"
-                    :color="getDetectionTypeColor(model.detection_type)"
-                  >
-                    {{ getDetectionTypeLabel(model.detection_type) }}
-                  </v-chip>
-                </td>
-                <td>{{ model.model_file || '-' }}</td>
-                <td>{{ model.description || '-' }}</td>
-              </tr>
-            </tbody>
-          </v-table>
+        <v-card-text v-if="detailCombination" class="studio-dialog-body">
+          <section class="studio-dialog-section combination-detail-summary">
+            <div class="detail-row">
+              <span>组合名称</span><strong>{{ detailCombination.name }}</strong>
+            </div>
+            <div class="detail-row">
+              <span>所属项目</span><strong>{{ detailCombination.project_name || '-' }}</strong>
+            </div>
+            <div class="detail-row description-row">
+              <span>组合说明</span><strong>{{ detailCombination.description || '-' }}</strong>
+            </div>
+          </section>
+          <section class="studio-dialog-section">
+            <div class="studio-dialog-section-heading">
+              <span class="studio-dialog-section-title">包含模型</span>
+              <span class="studio-dialog-section-copy">表格顺序即组合执行顺序。</span>
+            </div>
+            <v-table density="comfortable" class="detail-model-table">
+              <thead>
+                <tr>
+                  <th>模型名称</th>
+                  <th>类型</th>
+                  <th>模型文件</th>
+                  <th>说明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="model in detailCombination.models" :key="model.uuid">
+                  <td>{{ model.name }}</td>
+                  <td>
+                    <v-chip
+                      size="x-small"
+                      variant="tonal"
+                      :color="getDetectionTypeColor(model.detection_type)"
+                    >
+                      {{ getDetectionTypeLabel(model.detection_type) }}
+                    </v-chip>
+                  </td>
+                  <td>{{ model.model_file || '-' }}</td>
+                  <td>{{ model.description || '-' }}</td>
+                </tr>
+              </tbody>
+            </v-table>
+          </section>
         </v-card-text>
       </v-card>
     </v-dialog>
@@ -518,7 +561,7 @@ onMounted(() => {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  background: rgb(var(--v-theme-background));
+  background: var(--studio-canvas);
 }
 
 .ai-page-content {
@@ -561,10 +604,12 @@ onMounted(() => {
 }
 
 .model-selection-hint {
-  margin: 6px 0 16px;
-  color: rgba(var(--v-theme-on-surface), 0.6);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--studio-ink-tertiary);
   font-size: 12px;
-  line-height: 1.2;
+  line-height: 1.4;
 }
 
 .table-panel {
@@ -574,9 +619,9 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: rgb(var(--v-theme-surface));
-  border: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
-  border-radius: 6px;
+  background: var(--studio-surface-1);
+  border: 1px solid var(--studio-hairline);
+  border-radius: 10px;
 }
 
 .table-loading-bar {
@@ -683,14 +728,19 @@ onMounted(() => {
 .pagination-bar {
   flex: 0 0 auto;
   padding: 8px;
-  border-top: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-top: 1px solid var(--studio-hairline);
 }
 
 .detail-row {
   display: grid;
   grid-template-columns: 96px 1fr;
   gap: 16px;
-  margin-bottom: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--studio-hairline);
+}
+
+.detail-row:last-child {
+  border-bottom: 0;
 }
 
 .detail-row > span {
@@ -709,6 +759,21 @@ onMounted(() => {
   border: 1px solid var(--studio-hairline);
   border-radius: 8px;
   overflow: hidden;
+}
+
+.combination-dialog-card,
+.combination-detail-dialog {
+  max-height: calc(100vh - 64px);
+}
+
+.combination-dialog-card :deep(.studio-dialog-body),
+.combination-detail-dialog :deep(.studio-dialog-body) {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.combination-detail-summary {
+  gap: 0;
 }
 
 @media (max-width: 860px) {
