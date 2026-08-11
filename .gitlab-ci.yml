@@ -19,6 +19,7 @@ deploy:server:
           - services/auth/**/*
           - services/recognition/**/*
           - scripts/deploy-remote.sh
+          - infra/**/*
           - .gitlab-ci.yml
       when: on_success
     - when: never
