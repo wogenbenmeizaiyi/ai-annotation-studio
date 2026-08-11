@@ -1,16 +1,19 @@
 name: ai-annotation-studio-server
 
+# 连接外部基础设施（PostgreSQL/Redis/RabbitMQ/S3），不在本机启动任何基础设施服务。
+# 所有连接参数通过环境变量注入（GitLab CI 变量 -> 服务器 shell export -> compose 插值）。
+
 x-auth-environment: &auth-environment
   APP_ENV: production
-  POSTGRES_HOST: postgres
-  POSTGRES_PORT: "5432"
-  POSTGRES_USER: ${POSTGRES_USER}
-  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-  POSTGRES_DB: ${AUTH_POSTGRES_DB:-auth_service}
-  REDIS_HOST: redis
-  REDIS_PORT: "6379"
+  POSTGRES_HOST: ${POSTGRES_HOST}
+  POSTGRES_PORT: ${POSTGRES_PORT}
+  POSTGRES_USER: ${AUTH_POSTGRES_USER}
+  POSTGRES_PASSWORD: ${AUTH_POSTGRES_PASSWORD}
+  POSTGRES_DB: ${AUTH_POSTGRES_DB}
+  REDIS_HOST: ${REDIS_HOST}
+  REDIS_PORT: ${REDIS_PORT}
   REDIS_PASSWORD: ${REDIS_PASSWORD}
-  REDIS_DB: ${AUTH_REDIS_DB:-3}
+  REDIS_DB: ${AUTH_REDIS_DB}
   AUTH_ISSUER: ${AUTH_ISSUER:-ai-annotation-studio-auth}
   AUTH_AUDIENCE: ${AUTH_AUDIENCE:-ai-annotation-studio}
   AUTH_PRIVATE_KEY_PATH: /keys/private/auth-private.pem
@@ -21,18 +24,18 @@ x-auth-environment: &auth-environment
   AUTH_REFRESH_TOKEN_DAYS: ${AUTH_REFRESH_TOKEN_DAYS:-7}
 
 x-annotation-environment: &annotation-environment
-  POSTGRES_HOST: postgres
-  POSTGRES_PORT: "5432"
-  POSTGRES_USER: ${POSTGRES_USER}
-  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-  POSTGRES_DB: ${ANNOTATION_POSTGRES_DB:-annotation_studio}
-  S3_ENDPOINT: http://minio:9000
+  POSTGRES_HOST: ${POSTGRES_HOST}
+  POSTGRES_PORT: ${POSTGRES_PORT}
+  POSTGRES_USER: ${ANNOTATION_POSTGRES_USER}
+  POSTGRES_PASSWORD: ${ANNOTATION_POSTGRES_PASSWORD}
+  POSTGRES_DB: ${ANNOTATION_POSTGRES_DB}
+  S3_ENDPOINT: ${S3_ENDPOINT}
   S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT}
-  S3_ACCESS_KEY: ${MINIO_USER}
-  S3_SECRET_KEY: ${MINIO_PASSWORD}
-  S3_REGION: us-east-1
-  S3_SIGNATURE_VERSION: s3v4
-  S3_BUCKET_NAME: ai-cmm
+  S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+  S3_SECRET_KEY: ${S3_SECRET_KEY}
+  S3_REGION: ${S3_REGION:-us-east-1}
+  S3_SIGNATURE_VERSION: ${S3_SIGNATURE_VERSION:-s3v4}
+  S3_BUCKET_NAME: ${S3_BUCKET_NAME:-ai-cmm}
   TRAIN_DATA_DIR: /app/storage/train_data
   YOLO_MODEL_DIR: /app/models/yolo_models
   SAM3_MODEL_PATH: /app/models/sam3.pt
@@ -43,24 +46,24 @@ x-annotation-environment: &annotation-environment
   AUTH_PUBLIC_KEY_PATH: /keys/public/auth-public.pem
   AUTH_ISSUER: ${AUTH_ISSUER:-ai-annotation-studio-auth}
   AUTH_AUDIENCE: ${AUTH_AUDIENCE:-ai-annotation-studio}
-  AUTH_REDIS_HOST: redis
-  AUTH_REDIS_PORT: "6379"
+  AUTH_REDIS_HOST: ${REDIS_HOST}
+  AUTH_REDIS_PORT: ${REDIS_PORT}
   AUTH_REDIS_PASSWORD: ${REDIS_PASSWORD}
-  AUTH_REDIS_DB: ${AUTH_REDIS_DB:-3}
+  AUTH_REDIS_DB: ${AUTH_REDIS_DB}
   AUTH_ALLOWED_ORIGINS: ${AUTH_ALLOWED_ORIGINS}
 
 x-recognition-environment: &recognition-environment
   TZ: Asia/Shanghai
-  POSTGRES_HOST: postgres
-  POSTGRES_PORT: "5432"
-  POSTGRES_USER: ${POSTGRES_USER}
-  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-  POSTGRES_DB: ${RECOGNITION_POSTGRES_DB:-recognition_service}
-  RABBITMQ_HOST: rabbitmq
-  RABBITMQ_PORT: "5672"
+  POSTGRES_HOST: ${POSTGRES_HOST}
+  POSTGRES_PORT: ${POSTGRES_PORT}
+  POSTGRES_USER: ${RECOGNITION_POSTGRES_USER}
+  POSTGRES_PASSWORD: ${RECOGNITION_POSTGRES_PASSWORD}
+  POSTGRES_DB: ${RECOGNITION_POSTGRES_DB}
+  RABBITMQ_HOST: ${RABBITMQ_HOST}
+  RABBITMQ_PORT: ${RABBITMQ_PORT}
   RABBITMQ_USER: ${RABBITMQ_USER}
-  RABBITMQ_PASS: ${RABBITMQ_PASSWORD}
-  RABBITMQ_VHOST: /
+  RABBITMQ_PASS: ${RABBITMQ_PASS}
+  RABBITMQ_VHOST: ${RABBITMQ_VHOST:-/}
   RABBITMQ_QUEUE_NAME: ${RABBITMQ_QUEUE_NAME:-tasks.image.disease_detection}
   RABBITMQ_TASK_DLX: ${RABBITMQ_QUEUE_NAME:-tasks.image.disease_detection}.dlx
   RABBITMQ_TASK_DLQ: ${RABBITMQ_QUEUE_NAME:-tasks.image.disease_detection}.dlq
@@ -70,22 +73,23 @@ x-recognition-environment: &recognition-environment
   RABBITMQ_RESULT_DLX: ${RABBITMQ_RESULT_QUEUE:-events.image.disease_detected}.dlx
   RABBITMQ_RESULT_DLQ: ${RABBITMQ_RESULT_QUEUE:-events.image.disease_detected}.dlq
   RABBITMQ_RESULT_DLQ_ROUTING_KEY: ${RABBITMQ_RESULT_QUEUE:-events.image.disease_detected}.dlq
-  REDIS_HOST: redis
-  REDIS_PORT: "6379"
+  REDIS_HOST: ${REDIS_HOST}
+  REDIS_PORT: ${REDIS_PORT}
   REDIS_PASSWORD: ${REDIS_PASSWORD}
-  REDIS_DB: "12"
-  S3_ENDPOINT: http://minio:9000
-  S3_ACCESS_KEY: ${MINIO_USER}
-  S3_SECRET_KEY: ${MINIO_PASSWORD}
-  S3_REGION: us-east-1
-  S3_SIGNATURE_VERSION: s3v4
+  REDIS_DB: ${RECOGNITION_REDIS_DB}
+  S3_ENDPOINT: ${S3_ENDPOINT}
+  S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+  S3_SECRET_KEY: ${S3_SECRET_KEY}
+  S3_REGION: ${S3_REGION:-us-east-1}
+  S3_SIGNATURE_VERSION: ${S3_SIGNATURE_VERSION:-s3v4}
+  S3_BUCKET: ${S3_BUCKET_NAME:-ai-cmm}
   QWEN_API_KEY: ${QWEN_API_KEY:-}
   MODELS_DIR: /app/models
   AUTH_PUBLIC_KEY_PATH: /keys/public/auth-public.pem
   AUTH_ISSUER: ${AUTH_ISSUER:-ai-annotation-studio-auth}
   AUTH_AUDIENCE: ${AUTH_AUDIENCE:-ai-annotation-studio}
-  AUTH_REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/${AUTH_REDIS_DB:-3}
-  AUTH_REDIS_DB: ${AUTH_REDIS_DB:-3}
+  AUTH_REDIS_URL: redis://:${REDIS_PASSWORD}@${REDIS_HOST}:${REDIS_PORT}/${AUTH_REDIS_DB}
+  AUTH_REDIS_DB: ${AUTH_REDIS_DB}
   PLATFORM_ALLOWED_ORIGINS: ${AUTH_ALLOWED_ORIGINS}
   TRUST_PROXY_HEADERS: "true"
   PUBLIC_SUBMIT_RATE: ${PUBLIC_SUBMIT_RATE:-30}
@@ -99,94 +103,6 @@ x-recognition-environment: &recognition-environment
   RESOURCE_MIN_GPU_MEMORY_MB: ${RESOURCE_MIN_GPU_MEMORY_MB:-2048}
 
 services:
-  postgres:
-    image: postgres:alpine
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: postgres
-    ports:
-      - "${INFRA_BIND_ADDRESS:-127.0.0.1}:${POSTGRES_PORT:-15432}:5432"
-    volumes:
-      - postgres-data:/var/lib/postgresql
-      - ./init/postgres:/docker-entrypoint-initdb.d:ro
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d postgres"]
-      interval: 3s
-      timeout: 3s
-      retries: 40
-    restart: unless-stopped
-
-  rabbitmq:
-    image: rabbitmq:management-alpine
-    environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
-    ports:
-      - "${INFRA_BIND_ADDRESS:-127.0.0.1}:${RABBITMQ_PORT:-15673}:5672"
-      - "${INFRA_BIND_ADDRESS:-127.0.0.1}:${RABBITMQ_MANAGEMENT_PORT:-15674}:15672"
-    volumes:
-      - rabbitmq-data:/var/lib/rabbitmq
-    healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
-      interval: 3s
-      timeout: 5s
-      retries: 40
-    restart: unless-stopped
-
-  redis:
-    image: redis:alpine
-    environment:
-      REDIS_PASSWORD: ${REDIS_PASSWORD}
-    command:
-      - sh
-      - -c
-      - exec redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD"
-    ports:
-      - "${INFRA_BIND_ADDRESS:-127.0.0.1}:${REDIS_PORT:-16379}:6379"
-    volumes:
-      - redis-data:/data
-    healthcheck:
-      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep PONG"]
-      interval: 3s
-      timeout: 3s
-      retries: 40
-    restart: unless-stopped
-
-  minio:
-    image: minio/minio:latest
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: ${MINIO_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD}
-    ports:
-      - "${S3_BIND_ADDRESS:-0.0.0.0}:${S3_PORT:-19000}:9000"
-      - "${INFRA_BIND_ADDRESS:-127.0.0.1}:${MINIO_CONSOLE_PORT:-19001}:9001"
-    volumes:
-      - minio-data:/data
-    healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:9000/minio/health/live"]
-      interval: 3s
-      timeout: 3s
-      retries: 40
-    restart: unless-stopped
-
-  minio-init:
-    image: minio/mc:latest
-    depends_on:
-      minio:
-        condition: service_healthy
-    environment:
-      MINIO_USER: ${MINIO_USER}
-      MINIO_PASSWORD: ${MINIO_PASSWORD}
-    entrypoint: /bin/sh
-    command:
-      - -c
-      - >-
-        mc alias set local http://minio:9000 "$$MINIO_USER" "$$MINIO_PASSWORD"
-        && mc mb --ignore-existing local/ai-cmm
-    restart: "no"
-
   auth-keygen:
     image: ai-studio-auth:${BUSINESS_IMAGE_TAG:-local}
     environment:
@@ -205,27 +121,18 @@ services:
   auth-migrate:
     image: ai-studio-auth:${BUSINESS_IMAGE_TAG:-local}
     environment: *auth-environment
-    depends_on:
-      postgres:
-        condition: service_healthy
     command: ["python", "-m", "alembic", "upgrade", "head"]
     restart: "no"
 
   annotation-migrate:
     image: ai-studio-annotation:${BUSINESS_IMAGE_TAG:-local}
     environment: *annotation-environment
-    depends_on:
-      postgres:
-        condition: service_healthy
     command: ["python", "-m", "alembic", "upgrade", "head"]
     restart: "no"
 
   recognition-migrate:
     image: ai-studio-recognition-api:${BUSINESS_IMAGE_TAG:-local}
     environment: *recognition-environment
-    depends_on:
-      postgres:
-        condition: service_healthy
     command: ["python", "-m", "alembic", "upgrade", "head"]
     restart: "no"
 
@@ -237,8 +144,6 @@ services:
         condition: service_completed_successfully
       auth-migrate:
         condition: service_completed_successfully
-      redis:
-        condition: service_healthy
     volumes:
       - auth-private-key:/keys/private
       - auth-public-key:/keys/public
@@ -260,10 +165,6 @@ services:
         condition: service_completed_successfully
       auth:
         condition: service_healthy
-      minio-init:
-        condition: service_completed_successfully
-      redis:
-        condition: service_healthy
     volumes:
       - ../../services/annotation/logs:/app/logs
       - ../../services/annotation/models:/app/models
@@ -283,12 +184,6 @@ services:
         condition: service_completed_successfully
       auth:
         condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      minio-init:
-        condition: service_completed_successfully
     volumes:
       - ../../services/recognition/logs:/app/logs
       - ../../services/recognition/models:/app/models
@@ -302,12 +197,6 @@ services:
     environment: *recognition-environment
     depends_on:
       recognition-migrate:
-        condition: service_completed_successfully
-      rabbitmq:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      minio-init:
         condition: service_completed_successfully
     volumes:
       - ../../services/recognition/logs:/app/logs
@@ -334,10 +223,6 @@ services:
     depends_on:
       recognition-migrate:
         condition: service_completed_successfully
-      rabbitmq:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
     volumes:
       - ../../services/recognition/logs:/app/logs
       - auth-public-key:/keys/public:ro
@@ -379,10 +264,6 @@ services:
     restart: unless-stopped
 
 volumes:
-  postgres-data:
-  rabbitmq-data:
-  redis-data:
-  minio-data:
   auth-private-key:
   auth-public-key:
   caddy-data:
