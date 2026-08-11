@@ -330,15 +330,6 @@ def recognize_image(self, **kwargs) -> dict:
         if db is not None:
             db.rollback()
             mark_result_storage_failed(str(e))
-        self.update_state(
-            state="FAILURE",
-            meta={
-                "error": str(e),
-                "processed": processed_count,
-                "total": total,
-                "percent": int(processed_count / total * 100) if total else 0,
-            },
-        )
         raise Reject(str(e), requeue=False) from e
     except Exception as e:
         if db is not None:
@@ -348,15 +339,6 @@ def recognize_image(self, **kwargs) -> dict:
                 "Task %s exhausted whole-task retries, dead-lettering: %s",
                 task_id,
                 e,
-            )
-            self.update_state(
-                state="FAILURE",
-                meta={
-                    "error": str(e),
-                    "processed": processed_count,
-                    "total": total,
-                    "percent": int(processed_count / total * 100) if total else 0,
-                },
             )
             if db is not None:
                 mark_result_storage_failed(str(e))

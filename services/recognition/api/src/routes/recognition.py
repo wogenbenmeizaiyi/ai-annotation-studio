@@ -14,6 +14,7 @@ from core.storage.model_cache import ModelUnavailableError, ensure_model_availab
 from core.mq import (
     get_recognition_task_result,
 )
+from core.storage.recognition_result_storage import get_recognition_task_record
 from core.config import config
 from core.public_security import validate_public_images
 from core.schemas.recognition import (
@@ -330,15 +331,59 @@ async def submit_multimodal(
 
 
 @router.get("/result")
-async def get_result(task_id: str = Query(...)):
+async def get_result(
+    task_id: str = Query(...),
+    db: Session = Depends(get_db),
+):
     _validate_task_id(task_id)
+
+    record = get_recognition_task_record(task_id, db)
+    if record is not None:
+        record_status = (record.status or "").lower()
+        progress = TaskProgress(
+            processed=0,
+            total=0,
+            percent=0,
+        )
+        if record_status in {"success", "failed"}:
+            return RecognitionStatus(
+                task_id=task_id,
+                status=record_status,
+                error=record.last_callback_error if record_status == "failed" else None,
+                progress=progress,
+            ).to_response()
+        if record_status == "processing":
+            return RecognitionStatus(
+                task_id=task_id,
+                status="processing",
+                progress=progress,
+            ).to_response()
+
     result = get_recognition_task_result(task_id)
 
-    if result.state == "PENDING":
+    try:
+        state = result.state
+    except Exception:
+        logger.warning(
+            "recognition result meta unreadable task_id=%s, falling back to db status",
+            task_id,
+        )
+        if record is not None:
+            return RecognitionStatus(
+                task_id=task_id,
+                status=(record.status or "pending").lower(),
+                error=record.last_callback_error if record.status == "failed" else None,
+            ).to_response()
+        raise HTTPException(status_code=404, detail="任务不存在")
+
+    if state == "PENDING":
         return RecognitionStatus(task_id=task_id, status="pending").to_response()
 
-    if result.state == "PROGRESS":
-        meta = result.info or {}
+    if state == "PROGRESS":
+        try:
+            meta = result.info or {}
+        except Exception:
+            meta = {}
         return RecognitionStatus(
             task_id=task_id,
             status="processing",
@@ -349,8 +394,11 @@ async def get_result(task_id: str = Query(...)):
             ),
         ).to_response()
 
-    if result.state == "SUCCESS":
-        task_result = result.get()
+    if state == "SUCCESS":
+        try:
+            task_result = result.get()
+        except Exception:
+            task_result = {}
         progress = (
             task_result.get("progress", {}) if isinstance(task_result, dict) else {}
         )
@@ -364,8 +412,11 @@ async def get_result(task_id: str = Query(...)):
             ),
         ).to_response()
 
-    if result.state == "FAILURE":
-        meta = result.info if isinstance(result.info, dict) else {}
+    if state == "FAILURE":
+        try:
+            meta = result.info if isinstance(result.info, dict) else {}
+        except Exception:
+            meta = {}
         return RecognitionStatus(
             task_id=task_id,
             status="failed",
@@ -377,7 +428,7 @@ async def get_result(task_id: str = Query(...)):
             ),
         ).to_response()
 
-    return RecognitionStatus(task_id=task_id, status=result.state.lower()).to_response()
+    return RecognitionStatus(task_id=task_id, status=state.lower()).to_response()
 
 
 @router.get("/tasks")
