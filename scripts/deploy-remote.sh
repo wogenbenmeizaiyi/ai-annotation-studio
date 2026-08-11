@@ -49,8 +49,9 @@ VAR_NAMES=(
 ENV_EXPORT_LINES=""
 for name in "${VAR_NAMES[@]}"; do
     value="${!name:-}"
-    if [[ -n "$value" ]]; then
-        ENV_EXPORT_LINES+="export ${name}=$(printf '%s' "$value" | base64 -w0)"$'\n'
+    if [[ -n "$value" ]; then
+        # 每个值单独 base64，避免特殊字符；服务器端逐行解码
+        ENV_EXPORT_LINES+="${name}=$(printf '%s' "$value" | base64 -w0)"$'\n'
     fi
 done
 
@@ -70,9 +71,13 @@ ENV_BUNDLE_B64="$ENV_EXPORT_B64"
 # ---------- 还原并导出环境变量 ----------
 echo "==> 还原环境变量"
 ENV_EXPORT="$(printf '%s' "$ENV_EXPORT_B64" | base64 -d)"
-# shellcheck disable=SC1090
-eval "$ENV_EXPORT"
 unset ENV_EXPORT_B64
+while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    key="${line%%=*}"
+    value="$(printf '%s' "${line#*=}" | base64 -d)"
+    export "$key=$value"
+done <<<"$ENV_EXPORT"
 
 # ---------- 拉取最新代码 ----------
 if [[ ! -d "$DEPLOY_PATH/.git" ]]; then
