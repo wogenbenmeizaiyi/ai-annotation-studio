@@ -49,9 +49,10 @@ VAR_NAMES=(
 ENV_EXPORT_LINES=""
 for name in "${VAR_NAMES[@]}"; do
     value="${!name:-}"
-    if [[ -n "$value" ]; then
+    if [[ -n "$value" ]]; then
         # 每个值单独 base64，避免特殊字符；服务器端逐行解码
-        ENV_EXPORT_LINES+="${name}=$(printf '%s' "$value" | base64 -w0)"$'\n'
+        ENV_EXPORT_LINES+="${name}=$(printf '%s' "$value" | base64 -w0)
+"
     fi
 done
 
