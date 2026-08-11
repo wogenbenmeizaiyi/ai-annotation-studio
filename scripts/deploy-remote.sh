@@ -33,10 +33,12 @@ DEPLOY_KEY="${DEPLOY_KEY:?DEPLOY_KEY 未设置}"
 TMP_SSH="$(mktemp -d)"
 trap 'rm -rf "$TMP_SSH"' EXIT
 
-# GitLab 变量为 File 类型时 DEPLOY_KEY 是文件路径，String 类型时是私钥内容。
-# 与 ai-annotation-studio-web 项目一致的写法：printf + tr -d '\r' 清理 CR。
+# 优先使用 before_script 已准备好的 ~/.ssh/id_ed25519（与 ai-annotation-studio-web 项目一致）；
+# 本地调试时不存在则从 DEPLOY_KEY 生成（File 类型是路径，String 类型是内容）。
 KEY_FILE="$TMP_SSH/deploy_key"
-if [[ -f "$DEPLOY_KEY" ]]; then
+if [[ -f "$HOME/.ssh/id_ed25519" && -s "$HOME/.ssh/id_ed25519" ]]; then
+    cp "$HOME/.ssh/id_ed25519" "$KEY_FILE"
+elif [[ -f "$DEPLOY_KEY" ]]; then
     cp "$DEPLOY_KEY" "$KEY_FILE"
 else
     printf '%s\n' "$DEPLOY_KEY" | tr -d '\r' >"$KEY_FILE"
