@@ -28,6 +28,8 @@ services:
     command: >
       sh -c "python -m uvicorn api_server:app --host 0.0.0.0 --port 7987
       >> /app/logs/api.log 2>&1"
+    networks:
+      - gateway-net
 
   worker:
     image: image_detection_service_worker:latest
@@ -80,3 +82,7 @@ services:
     command: >
       sh -c "python -m result_consumer
       >> /app/logs/consumer.log 2>&1"
+
+networks:
+  gateway-net:
+    external: true

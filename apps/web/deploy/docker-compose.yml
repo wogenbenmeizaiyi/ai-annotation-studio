@@ -10,4 +10,10 @@ services:
       - "7280:80"
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    networks:
+      - gateway-net
     restart: unless-stopped
+
+networks:
+  gateway-net:
+    external: true
