@@ -35,12 +35,12 @@ Windows 下可用 `start.ps1` 同时启动这三个服务。
 | `RABBITMQ_TASK_DLQ_ROUTING_KEY` | `tasks.image.disease_detection.dlq` | 识别任务进入死信队列时使用的 routing key |
 | `RECOGNIZE_IMAGE_TASK_NAME` | `recognize_image` | Celery 任务名称，API 和 worker 必须一致 |
 | `RABBITMQ_RESULT_EXCHANGE` | `events.image.disease_detected` | Worker 发布识别结果的 fanout exchange |
-| `RABBITMQ_RESULT_QUEUE` | `image_results` | Consumer 订阅的结果队列 |
-| `RABBITMQ_RESULT_DLX` | `image_results.dlx` | 识别结果死信交换机 |
-| `RABBITMQ_RESULT_DLQ` | `image_results.dlq` | 识别结果死信队列 |
-| `RABBITMQ_RESULT_DLQ_ROUTING_KEY` | `image_results.dlq` | 识别结果进入死信队列时使用的 routing key |
-| `CALLBACK_RETRY_INTERVAL_SECONDS` | `30` | 回调失败后的重试间隔 |
-| `CALLBACK_RETRY_TIMEOUT_SECONDS` | `3600` | 回调最多重试总时长 |
+| `RABBITMQ_RESULT_QUEUE` | `events.image.disease_detected` | Consumer 订阅的结果队列 |
+| `RABBITMQ_RESULT_DLX` | `events.image.disease_detected.dlx` | 识别结果死信交换机 |
+| `RABBITMQ_RESULT_DLQ` | `events.image.disease_detected.dlq` | 识别结果死信队列 |
+| `RABBITMQ_RESULT_DLQ_ROUTING_KEY` | `events.image.disease_detected.dlq` | 识别结果进入死信队列时使用的 routing key |
+| `CALLBACK_RETRY_INTERVAL_SECONDS` | `0` | 回调失败后的重试间隔 |
+| `CALLBACK_RETRY_TIMEOUT_SECONDS` | `10` | 回调最多重试总时长 |
 | `CALLBACK_REQUEST_TIMEOUT_SECONDS` | `10` | 单次回调 HTTP 请求超时时间 |
 | `RESULT_DB_BATCH_SIZE` | `50` | Worker 检测结果每多少张图片批量写入一次数据库 |
 | `MODELS_DIR` | `models` | 模型根目录；相对路径按服务启动工作目录解析 |
