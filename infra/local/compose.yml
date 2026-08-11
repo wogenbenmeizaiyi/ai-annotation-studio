@@ -1,0 +1,96 @@
+name: ai-annotation-studio-local
+
+services:
+  postgres:
+    image: postgres:alpine
+    environment:
+      POSTGRES_USER: ${LOCAL_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${LOCAL_POSTGRES_PASSWORD}
+      POSTGRES_DB: postgres
+    ports:
+      - "${LOCAL_POSTGRES_PORT:-15432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql
+      - ./init/postgres:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${LOCAL_POSTGRES_USER} -d postgres"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: ${LOCAL_RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${LOCAL_RABBITMQ_PASSWORD}
+    ports:
+      - "${LOCAL_RABBITMQ_PORT:-15673}:5672"
+      - "${LOCAL_RABBITMQ_MANAGEMENT_PORT:-15674}:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 3s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+
+  redis:
+    image: redis:alpine
+    environment:
+      LOCAL_REDIS_PASSWORD: ${LOCAL_REDIS_PASSWORD}
+    command:
+      - sh
+      - -c
+      - exec redis-server --appendonly yes --requirepass "$$LOCAL_REDIS_PASSWORD"
+    ports:
+      - "${LOCAL_REDIS_PORT:-16379}:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$LOCAL_REDIS_PASSWORD\" ping | grep PONG"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${LOCAL_MINIO_USER}
+      MINIO_ROOT_PASSWORD: ${LOCAL_MINIO_PASSWORD}
+    ports:
+      - "${LOCAL_MINIO_PORT:-19000}:9000"
+      - "${LOCAL_MINIO_CONSOLE_PORT:-19001}:9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:9000/minio/health/live"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      LOCAL_MINIO_USER: ${LOCAL_MINIO_USER}
+      LOCAL_MINIO_PASSWORD: ${LOCAL_MINIO_PASSWORD}
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - >-
+        mc alias set local http://minio:9000 "$$LOCAL_MINIO_USER" "$$LOCAL_MINIO_PASSWORD"
+        && mc mb --ignore-existing local/ai-cmm
+    restart: "no"
+
+volumes:
+  postgres-data:
+  rabbitmq-data:
+  redis-data:
+  minio-data:

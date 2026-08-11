@@ -1,0 +1,4 @@
+interface:
+  display_name: "YOLO Training Assistant"
+  short_description: "Recommend, queue, and analyze YOLO training runs"
+  default_prompt: "Use $yolo-training-assistant to safely configure, queue, or analyze a YOLO training task."

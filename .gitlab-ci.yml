@@ -1,0 +1,34 @@
+stages:
+  - deploy
+
+variables:
+  GIT_DEPTH: '1'
+
+# 无容器镜像仓库方案：不构建/推送镜像。
+# main 分支提交时触发：SSH 到服务器 git pull 最新代码 + 还原 .env，
+# 服务器本地构建镜像并用 compose 启动（scripts/deploy-remote.sh）。
+deploy:server:
+  stage: deploy
+  image: python:3.12-slim
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      changes:
+        paths:
+          - apps/web/**/*
+          - services/annotation/**/*
+          - services/auth/**/*
+          - services/recognition/**/*
+          - scripts/deploy-remote.sh
+          - .gitlab-ci.yml
+      when: on_success
+    - when: never
+  script:
+    - apt-get update && apt-get install -y --no-install-recommends openssh-client
+    - bash scripts/deploy-remote.sh
+  variables:
+    ENV_BUNDLE_B64: $ENV_BUNDLE_B64
+    DEPLOY_KEY: $DEPLOY_KEY
+    DEPLOY_HOST: $DEPLOY_HOST
+    DEPLOY_USER: $DEPLOY_USER
+    DEPLOY_PATH: $DEPLOY_PATH
+    DEPLOY_ORIGIN: $DEPLOY_ORIGIN

@@ -1,0 +1,19 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+models/yolo/detection/*.pt
+models/yolo/segmentation/*.pt
+models/sam/*.pt
+runs/
+server.log
+.env
+api.pid
+worker.pid
+logs/
+.idea

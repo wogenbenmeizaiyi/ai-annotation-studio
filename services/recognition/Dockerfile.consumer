@@ -1,0 +1,10 @@
+ARG BASE_IMAGE=image_detection_service_deps:latest
+FROM ${BASE_IMAGE} AS runtime
+
+WORKDIR /app
+
+ENV PYTHONPATH=/app/consumer/src:/app/core/src
+
+COPY consumer ./consumer
+COPY core ./core
+RUN mkdir -p logs

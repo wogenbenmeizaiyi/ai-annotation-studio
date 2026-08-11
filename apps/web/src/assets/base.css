@@ -1,0 +1,13 @@
+/* Vuetify provides component styles, but the app still needs a viewport reset. */
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  overflow: hidden;
+  color-scheme: dark;
+  background: #010102;
+}

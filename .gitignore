@@ -1,0 +1,26 @@
+# Local secrets and generated runtime configuration
+.env
+.env.*
+!.env.example
+.local/
+
+# Dependency and build outputs
+**/.venv/
+**/node_modules/
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/.ruff_cache/
+**/.mypy_cache/
+**/.uv-cache/
+**/dist/
+**/*.tsbuildinfo
+
+# Runtime data
+**/logs/
+**/*.log
+**/.pids/
+
+# Editors and operating systems
+**/.idea/
+**/.DS_Store

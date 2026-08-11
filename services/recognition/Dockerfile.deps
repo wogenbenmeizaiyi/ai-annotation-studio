@@ -1,0 +1,24 @@
+# syntax=docker/dockerfile:1.7
+ARG PYTORCH_BASE_IMAGE=pytorch/pytorch:2.10.0-cuda13.0-cudnn9-runtime
+FROM ${PYTORCH_BASE_IMAGE}
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_DEFAULT_TIMEOUT=120 \
+    PIP_RETRIES=10 \
+    PIP_BREAK_SYSTEM_PACKAGES=1
+
+WORKDIR /app
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        libgl1 \
+        libglib2.0-0 \
+        curl \
+        git \
+        tzdata \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt ./
+RUN --mount=type=cache,target=/root/.cache/pip \
+    python -m pip install --break-system-packages -r requirements.txt

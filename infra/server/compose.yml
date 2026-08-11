@@ -1,0 +1,389 @@
+name: ai-annotation-studio-server
+
+x-auth-environment: &auth-environment
+  APP_ENV: production
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: "5432"
+  POSTGRES_USER: ${POSTGRES_USER}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+  POSTGRES_DB: ${AUTH_POSTGRES_DB:-auth_service}
+  REDIS_HOST: redis
+  REDIS_PORT: "6379"
+  REDIS_PASSWORD: ${REDIS_PASSWORD}
+  REDIS_DB: ${AUTH_REDIS_DB:-3}
+  AUTH_ISSUER: ${AUTH_ISSUER:-ai-annotation-studio-auth}
+  AUTH_AUDIENCE: ${AUTH_AUDIENCE:-ai-annotation-studio}
+  AUTH_PRIVATE_KEY_PATH: /keys/private/auth-private.pem
+  AUTH_PUBLIC_KEY_PATH: /keys/public/auth-public.pem
+  AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-false}
+  AUTH_ALLOWED_ORIGINS: ${AUTH_ALLOWED_ORIGINS}
+  AUTH_ACCESS_TOKEN_MINUTES: ${AUTH_ACCESS_TOKEN_MINUTES:-15}
+  AUTH_REFRESH_TOKEN_DAYS: ${AUTH_REFRESH_TOKEN_DAYS:-7}
+
+x-annotation-environment: &annotation-environment
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: "5432"
+  POSTGRES_USER: ${POSTGRES_USER}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+  POSTGRES_DB: ${ANNOTATION_POSTGRES_DB:-annotation_studio}
+  S3_ENDPOINT: http://minio:9000
+  S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT}
+  S3_ACCESS_KEY: ${MINIO_USER}
+  S3_SECRET_KEY: ${MINIO_PASSWORD}
+  S3_REGION: us-east-1
+  S3_SIGNATURE_VERSION: s3v4
+  S3_BUCKET_NAME: ai-cmm
+  TRAIN_DATA_DIR: /app/storage/train_data
+  YOLO_MODEL_DIR: /app/models/yolo_models
+  SAM3_MODEL_PATH: /app/models/sam3.pt
+  AGENT_API_KEY: ${AGENT_API_KEY:-}
+  AGENT_MODEL: ${AGENT_MODEL:-qwen3.7-plus}
+  AGENT_BASE_URL: ${AGENT_BASE_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1}
+  AGENT_LOG_FILE: /app/logs/agent.log
+  AUTH_PUBLIC_KEY_PATH: /keys/public/auth-public.pem
+  AUTH_ISSUER: ${AUTH_ISSUER:-ai-annotation-studio-auth}
+  AUTH_AUDIENCE: ${AUTH_AUDIENCE:-ai-annotation-studio}
+  AUTH_REDIS_HOST: redis
+  AUTH_REDIS_PORT: "6379"
+  AUTH_REDIS_PASSWORD: ${REDIS_PASSWORD}
+  AUTH_REDIS_DB: ${AUTH_REDIS_DB:-3}
+  AUTH_ALLOWED_ORIGINS: ${AUTH_ALLOWED_ORIGINS}
+
+x-recognition-environment: &recognition-environment
+  TZ: Asia/Shanghai
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: "5432"
+  POSTGRES_USER: ${POSTGRES_USER}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+  POSTGRES_DB: ${RECOGNITION_POSTGRES_DB:-recognition_service}
+  RABBITMQ_HOST: rabbitmq
+  RABBITMQ_PORT: "5672"
+  RABBITMQ_USER: ${RABBITMQ_USER}
+  RABBITMQ_PASS: ${RABBITMQ_PASSWORD}
+  RABBITMQ_VHOST: /
+  RABBITMQ_QUEUE_NAME: ${RABBITMQ_QUEUE_NAME:-tasks.image.disease_detection}
+  RABBITMQ_TASK_DLX: ${RABBITMQ_QUEUE_NAME:-tasks.image.disease_detection}.dlx
+  RABBITMQ_TASK_DLQ: ${RABBITMQ_QUEUE_NAME:-tasks.image.disease_detection}.dlq
+  RABBITMQ_TASK_DLQ_ROUTING_KEY: ${RABBITMQ_QUEUE_NAME:-tasks.image.disease_detection}.dlq
+  RABBITMQ_RESULT_QUEUE: ${RABBITMQ_RESULT_QUEUE:-events.image.disease_detected}
+  RABBITMQ_RESULT_EXCHANGE: ${RABBITMQ_RESULT_EXCHANGE:-events.image.disease_detected}
+  RABBITMQ_RESULT_DLX: ${RABBITMQ_RESULT_QUEUE:-events.image.disease_detected}.dlx
+  RABBITMQ_RESULT_DLQ: ${RABBITMQ_RESULT_QUEUE:-events.image.disease_detected}.dlq
+  RABBITMQ_RESULT_DLQ_ROUTING_KEY: ${RABBITMQ_RESULT_QUEUE:-events.image.disease_detected}.dlq
+  REDIS_HOST: redis
+  REDIS_PORT: "6379"
+  REDIS_PASSWORD: ${REDIS_PASSWORD}
+  REDIS_DB: "12"
+  S3_ENDPOINT: http://minio:9000
+  S3_ACCESS_KEY: ${MINIO_USER}
+  S3_SECRET_KEY: ${MINIO_PASSWORD}
+  S3_REGION: us-east-1
+  S3_SIGNATURE_VERSION: s3v4
+  QWEN_API_KEY: ${QWEN_API_KEY:-}
+  MODELS_DIR: /app/models
+  AUTH_PUBLIC_KEY_PATH: /keys/public/auth-public.pem
+  AUTH_ISSUER: ${AUTH_ISSUER:-ai-annotation-studio-auth}
+  AUTH_AUDIENCE: ${AUTH_AUDIENCE:-ai-annotation-studio}
+  AUTH_REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/${AUTH_REDIS_DB:-3}
+  AUTH_REDIS_DB: ${AUTH_REDIS_DB:-3}
+  PLATFORM_ALLOWED_ORIGINS: ${AUTH_ALLOWED_ORIGINS}
+  TRUST_PROXY_HEADERS: "true"
+  PUBLIC_SUBMIT_RATE: ${PUBLIC_SUBMIT_RATE:-30}
+  PUBLIC_DIRECT_RATE: ${PUBLIC_DIRECT_RATE:-10}
+  PUBLIC_QUERY_RATE: ${PUBLIC_QUERY_RATE:-120}
+  PUBLIC_MAX_IMAGES: ${PUBLIC_MAX_IMAGES:-100}
+  PUBLIC_MAX_UPLOAD_BYTES: ${PUBLIC_MAX_UPLOAD_BYTES:-20971520}
+  PUBLIC_IMAGE_URL_ALLOWLIST: ${PUBLIC_IMAGE_URL_ALLOWLIST:-}
+  RESOURCE_CHECK_ENABLED: ${RESOURCE_CHECK_ENABLED:-true}
+  RESOURCE_MIN_SYSTEM_MEMORY_MB: ${RESOURCE_MIN_SYSTEM_MEMORY_MB:-1024}
+  RESOURCE_MIN_GPU_MEMORY_MB: ${RESOURCE_MIN_GPU_MEMORY_MB:-2048}
+
+services:
+  postgres:
+    image: postgres:alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: postgres
+    ports:
+      - "${INFRA_BIND_ADDRESS:-127.0.0.1}:${POSTGRES_PORT:-15432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql
+      - ./init/postgres:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d postgres"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+    ports:
+      - "${INFRA_BIND_ADDRESS:-127.0.0.1}:${RABBITMQ_PORT:-15673}:5672"
+      - "${INFRA_BIND_ADDRESS:-127.0.0.1}:${RABBITMQ_MANAGEMENT_PORT:-15674}:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 3s
+      timeout: 5s
+      retries: 40
+    restart: unless-stopped
+
+  redis:
+    image: redis:alpine
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    command:
+      - sh
+      - -c
+      - exec redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD"
+    ports:
+      - "${INFRA_BIND_ADDRESS:-127.0.0.1}:${REDIS_PORT:-16379}:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep PONG"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD}
+    ports:
+      - "${S3_BIND_ADDRESS:-0.0.0.0}:${S3_PORT:-19000}:9000"
+      - "${INFRA_BIND_ADDRESS:-127.0.0.1}:${MINIO_CONSOLE_PORT:-19001}:9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:9000/minio/health/live"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+    restart: unless-stopped
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_USER: ${MINIO_USER}
+      MINIO_PASSWORD: ${MINIO_PASSWORD}
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - >-
+        mc alias set local http://minio:9000 "$$MINIO_USER" "$$MINIO_PASSWORD"
+        && mc mb --ignore-existing local/ai-cmm
+    restart: "no"
+
+  auth-keygen:
+    image: ai-studio-auth:${BUSINESS_IMAGE_TAG:-local}
+    environment:
+      APP_ENV: development
+      AUTH_PRIVATE_KEY_PATH: /keys/private/auth-private.pem
+      AUTH_PUBLIC_KEY_PATH: /keys/public/auth-public.pem
+    volumes:
+      - auth-private-key:/keys/private
+      - auth-public-key:/keys/public
+    command:
+      - python
+      - -c
+      - from app.core.security import ensure_signing_keys; ensure_signing_keys()
+    restart: "no"
+
+  auth-migrate:
+    image: ai-studio-auth:${BUSINESS_IMAGE_TAG:-local}
+    environment: *auth-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["python", "-m", "alembic", "upgrade", "head"]
+    restart: "no"
+
+  annotation-migrate:
+    image: ai-studio-annotation:${BUSINESS_IMAGE_TAG:-local}
+    environment: *annotation-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["python", "-m", "alembic", "upgrade", "head"]
+    restart: "no"
+
+  recognition-migrate:
+    image: ai-studio-recognition-api:${BUSINESS_IMAGE_TAG:-local}
+    environment: *recognition-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["python", "-m", "alembic", "upgrade", "head"]
+    restart: "no"
+
+  auth:
+    image: ai-studio-auth:${BUSINESS_IMAGE_TAG:-local}
+    environment: *auth-environment
+    depends_on:
+      auth-keygen:
+        condition: service_completed_successfully
+      auth-migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    volumes:
+      - auth-private-key:/keys/private
+      - auth-public-key:/keys/public
+    expose:
+      - "8787"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8787/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+    restart: unless-stopped
+
+  annotation-api:
+    image: ai-studio-annotation:${BUSINESS_IMAGE_TAG:-local}
+    environment: *annotation-environment
+    depends_on:
+      annotation-migrate:
+        condition: service_completed_successfully
+      auth:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    volumes:
+      - ../../services/annotation/logs:/app/logs
+      - ../../services/annotation/models:/app/models
+      - ../../services/annotation/storage:/app/storage
+      - ../../services/annotation/runs:/app/runs
+      - auth-public-key:/keys/public:ro
+    shm_size: 8gb
+    expose:
+      - "8811"
+    restart: unless-stopped
+
+  recognition-api:
+    image: ai-studio-recognition-api:${BUSINESS_IMAGE_TAG:-local}
+    environment: *recognition-environment
+    depends_on:
+      recognition-migrate:
+        condition: service_completed_successfully
+      auth:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    volumes:
+      - ../../services/recognition/logs:/app/logs
+      - ../../services/recognition/models:/app/models
+      - auth-public-key:/keys/public:ro
+    expose:
+      - "7987"
+    restart: unless-stopped
+
+  recognition-worker:
+    image: ai-studio-recognition-worker:${BUSINESS_IMAGE_TAG:-local}
+    environment: *recognition-environment
+    depends_on:
+      recognition-migrate:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    volumes:
+      - ../../services/recognition/logs:/app/logs
+      - ../../services/recognition/models:/app/models
+      - auth-public-key:/keys/public:ro
+    command:
+      - python
+      - -m
+      - celery
+      - -A
+      - worker_server.celery_app
+      - worker
+      - --loglevel=info
+      - --logfile=/app/logs/worker.log
+      - -Q
+      - ${RABBITMQ_QUEUE_NAME:-tasks.image.disease_detection}
+      - --prefetch-multiplier=1
+      - --concurrency=1
+    restart: unless-stopped
+
+  recognition-consumer:
+    image: ai-studio-recognition-consumer:${BUSINESS_IMAGE_TAG:-local}
+    environment: *recognition-environment
+    depends_on:
+      recognition-migrate:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ../../services/recognition/logs:/app/logs
+      - auth-public-key:/keys/public:ro
+    command: ["python", "-m", "result_consumer"]
+    restart: unless-stopped
+
+  web:
+    image: ai-studio-web:${BUSINESS_IMAGE_TAG:-local}
+    depends_on:
+      auth:
+        condition: service_healthy
+      annotation-api:
+        condition: service_started
+      recognition-api:
+        condition: service_started
+    ports:
+      - "${WEB_BIND_ADDRESS:-0.0.0.0}:${WEB_PORT:-7280}:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    profiles:
+      - proxy
+    environment:
+      PUBLIC_DOMAIN: ${PUBLIC_DOMAIN:-localhost}
+    depends_on:
+      web:
+        condition: service_started
+    ports:
+      - "0.0.0.0:80:80"
+      - "0.0.0.0:443:443"
+      - "0.0.0.0:443:443/udp"
+    volumes:
+      - ./caddy:/etc/caddy:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  rabbitmq-data:
+  redis-data:
+  minio-data:
+  auth-private-key:
+  auth-public-key:
+  caddy-data:
+  caddy-config:
