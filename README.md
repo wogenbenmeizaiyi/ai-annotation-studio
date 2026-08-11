@@ -323,6 +323,8 @@ cd services\recognition
 
 ## GitLab 镜像流水线
 
+根目录的 `.env.example` 汇总了三个后端和前端使用的连接变量。按文件中的分组将需要的 `KEY=VALUE` 逐项添加到 GitLab；非连接参数继续使用各服务 `config` 中的默认值，不需要全部放进 CI/CD Variables。
+
 在 GitLab 项目设置以下变量：
 
 - `CONTAINER_REGISTRY`
