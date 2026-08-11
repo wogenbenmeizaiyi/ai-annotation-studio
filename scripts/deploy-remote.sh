@@ -16,6 +16,7 @@ DEPLOY_USER="${DEPLOY_USER:-root}"
 DEPLOY_PATH="${DEPLOY_PATH:-/opt/ai-annotation-studio}"
 DEPLOY_ORIGIN="${DEPLOY_ORIGIN:-http://$DEPLOY_HOST:7280}"
 DEPLOY_BRANCH="${DEPLOY_BRANCH:-main}"
+DEPLOY_REPO_URL="${DEPLOY_REPO_URL:?DEPLOY_REPO_URL 未设置}"
 IMAGE_TAG="${IMAGE_TAG:-local}"
 DEPLOY_PORT="${DEPLOY_PORT:-22}"
 
@@ -40,6 +41,7 @@ set -Eeuo pipefail
 DEPLOY_PATH="$DEPLOY_PATH"
 DEPLOY_ORIGIN="$DEPLOY_ORIGIN"
 DEPLOY_BRANCH="$DEPLOY_BRANCH"
+DEPLOY_REPO_URL="$DEPLOY_REPO_URL"
 IMAGE_TAG="$IMAGE_TAG"
 ENV_BUNDLE_B64="$ENV_BUNDLE_B64"
 
@@ -70,8 +72,9 @@ echo "==> .env 已还原"
 
 # ---------- 拉取最新代码 ----------
 if [[ ! -d "$DEPLOY_PATH/.git" ]]; then
-    echo "error: $DEPLOY_PATH 不是 git 仓库。请先在服务器执行 git clone。" >&2
-    exit 1
+    echo "==> $DEPLOY_PATH 不是 git 仓库，首次部署自动 clone"
+    mkdir -p "$(dirname "$DEPLOY_PATH")"
+    git clone --branch "$DEPLOY_BRANCH" "$DEPLOY_REPO_URL" "$DEPLOY_PATH"
 fi
 cd "$DEPLOY_PATH"
 echo "==> git pull $DEPLOY_BRANCH"
@@ -116,4 +119,4 @@ REMOTE_EOF
 
 echo "==> 在服务器执行部署"
 ssh "${SSH_OPTS[@]}" "$SSH_DEST" \
-    "DEPLOY_PATH='$DEPLOY_PATH' DEPLOY_ORIGIN='$DEPLOY_ORIGIN' DEPLOY_BRANCH='$DEPLOY_BRANCH' IMAGE_TAG='$IMAGE_TAG' ENV_BUNDLE_B64='$ENV_BUNDLE_B64' bash -s" <<<"$REMOTE_SCRIPT"
+    "DEPLOY_PATH='$DEPLOY_PATH' DEPLOY_ORIGIN='$DEPLOY_ORIGIN' DEPLOY_BRANCH='$DEPLOY_BRANCH' DEPLOY_REPO_URL='$DEPLOY_REPO_URL' IMAGE_TAG='$IMAGE_TAG' ENV_BUNDLE_B64='$ENV_BUNDLE_B64' bash -s" <<<"$REMOTE_SCRIPT"
