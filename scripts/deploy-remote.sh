@@ -34,16 +34,18 @@ TMP_SSH="$(mktemp -d)"
 trap 'rm -rf "$TMP_SSH"' EXIT
 
 # GitLab 变量为 File 类型时 DEPLOY_KEY 是文件路径，String 类型时是私钥内容。
+# 与 ai-annotation-studio-web 项目一致的写法：printf + tr -d '\r' 清理 CR。
 KEY_FILE="$TMP_SSH/deploy_key"
 if [[ -f "$DEPLOY_KEY" ]]; then
     cp "$DEPLOY_KEY" "$KEY_FILE"
 else
-    printf '%s\n' "$DEPLOY_KEY" >"$KEY_FILE"
+    printf '%s\n' "$DEPLOY_KEY" | tr -d '\r' >"$KEY_FILE"
 fi
 chmod 600 "$KEY_FILE"
 
 SSH_OPTS=(
     -i "$KEY_FILE"
+    -o IdentitiesOnly=yes
     -o StrictHostKeyChecking=accept-new
     -o UserKnownHostsFile="$TMP_SSH/known_hosts"
     -o ConnectTimeout=20
