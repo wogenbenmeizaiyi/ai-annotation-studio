@@ -144,7 +144,7 @@ for base_image in \
     docker pull --platform linux/amd64 "$base_image"
 done
 
-docker build --platform linux/amd64 --build-arg VITE_APP_BASE_PATH=/ \
+docker build --platform linux/amd64 --build-arg VITE_APP_BASE_PATH=/web/ \
     -f apps/web/deploy/Dockerfile -t "ai-studio-web:$IMAGE_TAG" apps/web
 
 docker build --platform linux/amd64 -f services/annotation/Dockerfile.deps -t "ai-studio-annotation-deps:$IMAGE_TAG" services/annotation

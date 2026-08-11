@@ -20,7 +20,7 @@ Read and follow the nearest nested `AGENTS.md` before changing a subproject (web
 - Local infrastructure runs three PostgreSQL databases (`annotation_studio_local`, `recognition_service_local`, `auth_service_local`) because each Python service has an independent Alembic history.
 - Preserve the public ports: web 5173, auth 8787, annotation 8811, recognition 7987.
 - Production images are built only from tracked files. Runtime model files must be mounted or downloaded explicitly (models live in `services/{annotation,recognition}/models/`).
-- CI image changes must preserve immutable commit-SHA tags and the deploy-tag promotion guard.
+- Production deployment has **no container registry**: images are built on the target server from source. Do not reintroduce registry build/push jobs.
 
 ## Root commands
 
@@ -42,3 +42,21 @@ Read and follow the nearest nested `AGENTS.md` before changing a subproject (web
 ## Pre-commit
 
 Run `scripts/check.ps1` when changes cross project boundaries. For a single project, follow the project-local checklist in its `AGENTS.md`.
+
+## Production deployment (GitLab CI, no registry)
+
+Triggered by pushing to **`main`** on the internal GitLab (`origin`, `http://172.16.0.110:802`). The pipeline has a single `deploy:server` job running `scripts/deploy-remote.sh`; it SSHes to the production server and builds/runs everything **on the server**. There is no registry, no pushed images.
+
+Flow (`deploy-remote.sh`):
+1. Collects business connection vars (list in `VAR_DEFS`), base64-encodes each value, sends them over SSH as one blob.
+2. On the server: decodes the blob, `export`s each var, `git pull`s `main`, builds the 6 business images locally, then `docker compose -f infra/server/compose.yml up -d`.
+3. `infra/server/compose.yml` connects to **external** PostgreSQL/Redis/RabbitMQ/S3 (no bundled infra services) and injects env via `${VAR}` interpolation. `auth-keygen` generates JWT keys into a volume; `*-migrate` run Alembic against the external DBs.
+
+Key facts an agent must not get wrong:
+- **CI only triggers if `changes.paths` matches** (`.gitlab-ci.yml`). Added `infra/**` and `scripts/deploy-remote.sh` — anything else touched (e.g. README) will NOT redeploy.
+- Vars come from GitLab project variables by **bare name** (root `.env` is the source of truth for names; shared keys like `POSTGRES_USER` have no prefix, only per-service DB names get `AUTH_`/`ANNOTATION_`/`RECOGNITION_` prefixes). `deploy-remote.sh` falls back to code defaults when a var is missing or arrives as literal `$NAME`.
+- Values are base64-per-line and decoded on the server — do not `eval` the raw blob.
+- `infra/server/nginx.conf` proxies `/api/*` to compose service names (`auth`, `annotation-api`, `recognition-api`). It must NOT reference removed services (e.g. `minio`) or nginx dies with `host not found in upstream` and the web container crash-loops → blank white page.
+- The web container serves on `:7280`; the standalone old frontend container (`ai-annotation-studio-web-web-1`, project `ai-annotation-studio-web`) also used `:7280` and must be stopped first.
+- `S3_PUBLIC_ENDPOINT` must be browser-reachable (external S3/object storage); image display depends on it.
+- After deployment, create the super admin manually: `cd $DEPLOY_PATH && bash scripts/server-local.sh create-admin` (use ASCII-only username; Chinese input over SSH fails with `UnicodeEncodeError`).
