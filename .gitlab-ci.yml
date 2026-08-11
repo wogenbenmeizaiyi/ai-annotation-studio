@@ -29,6 +29,7 @@ deploy:server:
     DEPLOY_USER: "weiyn"
     DEPLOY_PATH: "/home/weiyn/projects/ai-annotation-studio"
     DEPLOY_ORIGIN: "http://172.16.0.72:7280"
+    DEPLOY_REPO_URL: "http://172.16.0.110:802/product/ai-server/ai-annotation-studio.git"
     ENV_BUNDLE_B64: $ENV_BUNDLE_B64
     DEPLOY_KEY: $DEPLOY_KEY
   before_script:
