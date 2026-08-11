@@ -56,7 +56,9 @@ class Config:
         "RABBITMQ_RESULT_EXCHANGE", "events.image.disease_detected"
     )
     # 结果存储队列：绑定到 RESULT_EXCHANGE，用于下游系统消费识别结果（出口终点）
-    RESULT_QUEUE = os.getenv("RABBITMQ_RESULT_QUEUE", "image_results")
+    RESULT_QUEUE = os.getenv(
+        "RABBITMQ_RESULT_QUEUE", "events.image.disease_detected"
+    )
     RESULT_DEAD_LETTER_EXCHANGE = os.getenv(
         "RABBITMQ_RESULT_DLX", f"{RESULT_QUEUE}.dlx"
     )
@@ -66,10 +68,10 @@ class Config:
     )
 
     CALLBACK_RETRY_INTERVAL_SECONDS = int(
-        os.getenv("CALLBACK_RETRY_INTERVAL_SECONDS", 30)
+        os.getenv("CALLBACK_RETRY_INTERVAL_SECONDS", 0)
     )
     CALLBACK_RETRY_TIMEOUT_SECONDS = int(
-        os.getenv("CALLBACK_RETRY_TIMEOUT_SECONDS", 3600)
+        os.getenv("CALLBACK_RETRY_TIMEOUT_SECONDS", 10)
     )
     CALLBACK_REQUEST_TIMEOUT_SECONDS = int(
         os.getenv("CALLBACK_REQUEST_TIMEOUT_SECONDS", 10)
