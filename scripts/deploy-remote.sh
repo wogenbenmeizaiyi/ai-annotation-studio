@@ -45,6 +45,18 @@ DEPLOY_REPO_URL="$DEPLOY_REPO_URL"
 IMAGE_TAG="$IMAGE_TAG"
 ENV_BUNDLE_B64="$ENV_BUNDLE_B64"
 
+# ---------- 拉取最新代码 ----------
+if [[ ! -d "$DEPLOY_PATH/.git" ]]; then
+    echo "==> $DEPLOY_PATH 不是 git 仓库，首次部署自动 clone"
+    mkdir -p "$(dirname "$DEPLOY_PATH")"
+    git clone --branch "$DEPLOY_BRANCH" "$DEPLOY_REPO_URL" "$DEPLOY_PATH"
+fi
+cd "$DEPLOY_PATH"
+echo "==> git pull $DEPLOY_BRANCH"
+git fetch origin "$DEPLOY_BRANCH"
+git checkout -f "$DEPLOY_BRANCH"
+git reset --hard "origin/$DEPLOY_BRANCH"
+
 # ---------- 解码三个服务的 .env ----------
 decode_env() {
     local marker="$1"
@@ -69,18 +81,6 @@ decode_env "services/auth/.env"        "$DEPLOY_PATH/services/auth/.env"
 decode_env "services/annotation/.env"  "$DEPLOY_PATH/services/annotation/.env"
 decode_env "services/recognition/.env" "$DEPLOY_PATH/services/recognition/.env"
 echo "==> .env 已还原"
-
-# ---------- 拉取最新代码 ----------
-if [[ ! -d "$DEPLOY_PATH/.git" ]]; then
-    echo "==> $DEPLOY_PATH 不是 git 仓库，首次部署自动 clone"
-    mkdir -p "$(dirname "$DEPLOY_PATH")"
-    git clone --branch "$DEPLOY_BRANCH" "$DEPLOY_REPO_URL" "$DEPLOY_PATH"
-fi
-cd "$DEPLOY_PATH"
-echo "==> git pull $DEPLOY_BRANCH"
-git fetch origin "$DEPLOY_BRANCH"
-git checkout -f "$DEPLOY_BRANCH"
-git reset --hard "origin/$DEPLOY_BRANCH"
 
 # ---------- 确保 server.env 存在并注入业务 Key ----------
 mkdir -p "$DEPLOY_PATH/.local"
