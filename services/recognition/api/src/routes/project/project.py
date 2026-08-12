@@ -13,7 +13,10 @@ from core.schemas.recognition import (
     RecognitionModelConfig,
 )
 from core.schemas.task import RecognitionRecordedSubmitRequest
-from recognition_submission import submit_recorded_recognition
+from recognition_submission import (
+    RecognitionTaskPublishError,
+    submit_recorded_recognition,
+)
 
 router = APIRouter(tags=["project"])
 
@@ -156,6 +159,11 @@ async def submit_project_recognition(
                     "sub_task_id": task_id,
                 }
             )
+    except RecognitionTaskPublishError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="识别任务队列暂时不可用",
+        ) from exc
     except Exception as exc:
         raise HTTPException(
             status_code=500,

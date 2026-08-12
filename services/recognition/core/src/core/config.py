@@ -40,17 +40,6 @@ class Config:
     RABBITMQ_VHOST = os.getenv("RABBITMQ_VHOST", "/")
     RABBITMQ_QUEUE = os.getenv("RABBITMQ_QUEUE", "task_queue")
 
-    # 任务接收队列：Worker 监听此队列以获取识别任务（入口）
-    QUEUE_NAME = os.getenv("RABBITMQ_QUEUE_NAME", "tasks.image.disease_detection")
-    TASK_DEAD_LETTER_EXCHANGE = os.getenv("RABBITMQ_TASK_DLX", f"{QUEUE_NAME}.dlx")
-    TASK_DEAD_LETTER_QUEUE = os.getenv("RABBITMQ_TASK_DLQ", f"{QUEUE_NAME}.dlq")
-    TASK_DEAD_LETTER_ROUTING_KEY = os.getenv(
-        "RABBITMQ_TASK_DLQ_ROUTING_KEY", TASK_DEAD_LETTER_QUEUE
-    )
-    # 识别任务名称：提交端和 Celery worker 注册端必须保持一致
-    RECOGNIZE_IMAGE_TASK_NAME = os.getenv(
-        "RECOGNIZE_IMAGE_TASK_NAME", "recognize_image"
-    )
     # 结果广播交换机：Worker 完成任务后将结果发布到此处（出口/路由器）
     RESULT_EXCHANGE = os.getenv(
         "RABBITMQ_RESULT_EXCHANGE", "events.image.disease_detected"

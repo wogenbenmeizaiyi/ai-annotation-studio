@@ -15,12 +15,12 @@ from core.schemas.recognition import (
     RecognitionRequest,
     RecognitionResponse,
 )
-from engine.services.base_service import BaseRecognitionService
+from engine.services.gpu_service import GpuRecognitionService
 
 logger = logging.getLogger(__name__)
 
 
-class SamBaseService(BaseRecognitionService):
+class SamBaseService(GpuRecognitionService):
     def __init__(self, name: str, models_dir: Path | None = None) -> None:
         super().__init__(name)
         self._models_dir = models_dir or Path(config.MODELS_DIR).resolve() / "sam"

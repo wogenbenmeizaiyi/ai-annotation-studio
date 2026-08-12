@@ -1,0 +1,22 @@
+# syntax=docker/dockerfile:1.7
+FROM python:3.12-slim AS runtime
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_DEFAULT_TIMEOUT=120 \
+    PIP_RETRIES=10 \
+    PIP_BREAK_SYSTEM_PACKAGES=1 \
+    PYTHONPATH=/app/worker/src:/app/core/src:/app/engine/src
+
+WORKDIR /app
+
+COPY requirements.multimodal.txt ./
+RUN --mount=type=cache,target=/root/.cache/pip \
+    python -m pip install --break-system-packages -r requirements.multimodal.txt
+
+COPY worker ./worker
+COPY core ./core
+COPY engine ./engine
+RUN mkdir -p logs
+
+CMD ["python", "-m", "celery", "-A", "worker_server_multimodal.celery_app", "worker", "--loglevel=info", "--pool=threads", "--concurrency=4"]

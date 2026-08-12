@@ -14,7 +14,7 @@ from core.schemas.recognition import (
     RecognitionResponse,
     RecognitionMethod,
 )
-from engine.services.base_service import BaseRecognitionService
+from engine.services.gpu_service import GpuRecognitionService
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,7 @@ def _image_to_base64(img: Image.Image) -> str:
     return base64.b64encode(buffer.getvalue()).decode("utf-8")
 
 
-class YoloDetectionService(BaseRecognitionService):
+class YoloDetectionService(GpuRecognitionService):
     method = RecognitionMethod.YOLO_DETECTION
 
     def __init__(self, models_dir: Path | None = None) -> None:

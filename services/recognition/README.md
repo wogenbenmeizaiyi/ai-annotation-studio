@@ -1,13 +1,13 @@
 # AI Image Recognition API
 
-基于 Celery + RabbitMQ 的异步图像识别服务，集成 YOLO 检测/分割、SAM 分割、多模态识别四种识别方式。
+基于 Celery + RabbitMQ 的异步图像识别服务，集成 YOLO 检测/分割、SAM 分割、多模态识别四种识别方式。异步任务按资源类型进入三条队列，避免 GPU 推理与外部 API 调用相互阻塞。
 
 ## 项目架构
 
 ```
 rabbitMQ_test/
 ├── api/src/                                   # FastAPI 入口、路由、API 私有服务
-├── worker/src/                                # Celery worker 入口和识别任务
+├── worker/src/                                # GPU/多模态 Celery worker 入口和识别任务
 ├── consumer/src/                              # 结果消费和回调交付
 ├── core/src/core/                             # 配置、数据库、MQ、共享 schema、结果存储
 ├── engine/src/engine/                         # YOLO/SAM/多模态识别引擎
@@ -38,13 +38,12 @@ uv sync
 RABBITMQ_HOST=172.16.0.72
 RABBITMQ_USER=admin
 RABBITMQ_PASS=password
-RABBITMQ_QUEUE_NAME=tasks.image.disease_detection
 
 S3_ENDPOINT=http://172.16.0.110:9000
 S3_ACCESS_KEY=your_access_key
 S3_SECRET_KEY=your_secret_key
 
-DASHSCOPE_API_KEY=your_api_key_here
+QWEN_API_KEY=your_api_key_here
 ```
 
 ### 3. 启动服务
@@ -54,10 +53,22 @@ DASHSCOPE_API_KEY=your_api_key_here
 PYTHONPATH=api/src:worker/src:consumer/src:core/src:engine/src \
 uv run uvicorn api_server:app --host 0.0.0.0 --port 7987
 
-# Celery Worker
+# GPU Worker：YOLO 和 SAM 共用一个进程，严格串行
 PYTHONPATH=api/src:worker/src:consumer/src:core/src:engine/src \
-uv run celery -A worker_server.celery_app worker --loglevel=info --pool=solo
+uv run celery -A worker_server_gpu.celery_app worker --loglevel=info \
+  --pool=solo --concurrency=1 --prefetch-multiplier=1 \
+  --hostname='recognition-gpu@%h' \
+  -Q tasks.image.recognition.yolo,tasks.image.recognition.sam
+
+# 多模态 Worker：外部 API 任务并发，单任务内图片仍串行
+PYTHONPATH=api/src:worker/src:consumer/src:core/src:engine/src \
+uv run celery -A worker_server_multimodal.celery_app worker --loglevel=info \
+  --pool=threads --concurrency=4 \
+  --hostname='recognition-multimodal@%h' \
+  -Q tasks.image.recognition.multimodal
 ```
+
+三条任务队列名称和多模态任务并发固定为上述拓扑，不通过环境变量覆盖。也可以使用 `./start.ps1`（Windows）启动 API、两个 Worker 和保留的结果 Consumer，或用 `bash start.sh start`（Linux）启动 API 和两个 Worker。两个 Worker 使用独立 PID 和日志。旧队列 `tasks.image.disease_detection` 不再监听；切换前留在旧队列中的消息不会自动迁移或删除。
 
 ## REST API
 
@@ -186,14 +197,11 @@ GET /api/recognition/result/{task_id}
 ## 测试
 
 ```bash
-# E2E 集成测试 (需 Worker 已启动)
-uv run python tests/test_e2e.py
-
 # 单元测试
 uv run pytest tests/ -v
 
-# 单个测试文件
-uv run pytest tests/test_recognition_services.py -v
+# 静态检查
+uv run ruff check .
 ```
 
 ## 依赖

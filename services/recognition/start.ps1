@@ -4,9 +4,9 @@
 # 服务配置
 $UvicornApp = "api_server:app"
 $UvicornPort = "7987"
-$CeleryApp = "worker_server"
+$GpuCeleryApp = "worker_server_gpu.celery_app"
+$MultimodalCeleryApp = "worker_server_multimodal.celery_app"
 $ConsumerApp = "result_consumer"
-$QueueName = "tasks.image.disease_detection"
 $env:PYTHONUTF8 = "1"
 $env:PYTHONIOENCODING = "utf-8"
 $env:PYTHONPATH = "$PWD\api\src;$PWD\worker\src;$PWD\consumer\src;$PWD\core\src;$PWD\engine\src"
@@ -25,11 +25,12 @@ if (-not (Test-Path ".venv\Scripts\uvicorn.exe")) {
 $LogDir = "logs"
 if (-not (Test-Path $LogDir)) { New-Item -ItemType Directory -Path $LogDir | Out-Null }
 Remove-Item "$LogDir\api.log" -ErrorAction SilentlyContinue
-Remove-Item "$LogDir\worker.log" -ErrorAction SilentlyContinue
+Remove-Item "$LogDir\worker-gpu.log" -ErrorAction SilentlyContinue
+Remove-Item "$LogDir\worker-multimodal.log" -ErrorAction SilentlyContinue
 Remove-Item "$LogDir\consumer.log" -ErrorAction SilentlyContinue
 
 # 1. Start FastAPI
-Write-Host "[1/3] 启动 FastAPI: http://localhost:$UvicornPort" -ForegroundColor Green
+Write-Host "[1/4] 启动 FastAPI: http://localhost:$UvicornPort" -ForegroundColor Green
 $ApiJob = Start-Job {
     $Root = if ($using:PSScriptRoot) { $using:PSScriptRoot } else { (Get-Location).Path }
     & "$Root\.venv\Scripts\uvicorn.exe" $using:UvicornApp --host 0.0.0.0 --port $using:UvicornPort --log-level info *> "$using:LogDir\api.log"
@@ -39,14 +40,20 @@ Start-Sleep -Seconds 3
 # 获取 uvicorn 进程用于显示和停止
 $ApiProc = Get-Process -Name "uvicorn" -ErrorAction SilentlyContinue | Select-Object -First 1
 
-# 2. Start Celery Worker
-Write-Host "[2/3] 启动 Celery Worker" -ForegroundColor Green
-$WorkerProc = Start-Process -FilePath ".venv\Scripts\celery.exe" `
-    -ArgumentList "-A $CeleryApp worker --loglevel=info -Q $QueueName --logfile=$LogDir\worker.log --pool=solo" `
+# 2. Start GPU Celery Worker
+Write-Host "[2/4] 启动 GPU Worker (YOLO + SAM，串行)" -ForegroundColor Green
+$GpuWorkerProc = Start-Process -FilePath ".venv\Scripts\celery.exe" `
+    -ArgumentList "-A $GpuCeleryApp worker --loglevel=info -Q tasks.image.recognition.yolo,tasks.image.recognition.sam --logfile=$LogDir\worker-gpu.log --pool=solo --concurrency=1 --prefetch-multiplier=1 --hostname=recognition-gpu@%h" `
     -WindowStyle Hidden -PassThru
 
-# 3. Start Consumer
-Write-Host "[3/3] 启动 Consumer" -ForegroundColor Green
+# 3. Start multimodal Celery Worker
+Write-Host "[3/4] 启动多模态 Worker (固定并发: 4)" -ForegroundColor Green
+$MultimodalWorkerProc = Start-Process -FilePath ".venv\Scripts\celery.exe" `
+    -ArgumentList "-A $MultimodalCeleryApp worker --loglevel=info -Q tasks.image.recognition.multimodal --logfile=$LogDir\worker-multimodal.log --pool=threads --concurrency=4 --hostname=recognition-multimodal@%h" `
+    -WindowStyle Hidden -PassThru
+
+# 4. Start Consumer
+Write-Host "[4/4] 启动 Consumer" -ForegroundColor Green
 $ConsumerProc = Start-Process -FilePath ".venv\Scripts\python.exe" `
     -ArgumentList "-m $ConsumerApp" `
     -RedirectStandardOutput "$LogDir\consumer.log" `
@@ -60,9 +67,10 @@ if ($ApiProc) {
 } else {
     Write-Host "    FastAPI: 运行中"
 }
-Write-Host "    Worker PID:  $($WorkerProc.Id) -> 运行中"
+Write-Host "    GPU Worker PID: $($GpuWorkerProc.Id) -> 运行中"
+Write-Host "    Multimodal Worker PID: $($MultimodalWorkerProc.Id) -> 运行中"
 Write-Host "    Consumer PID: $($ConsumerProc.Id) -> 运行中"
-Write-Host "[*] 日志: $LogDir\api.log, $LogDir\worker.log, $LogDir\consumer.log"
+Write-Host "[*] 日志: $LogDir\api.log, $LogDir\worker-gpu.log, $LogDir\worker-multimodal.log, $LogDir\consumer.log"
 Write-Host ""
 Write-Host "按 [回车键] 停止所有服务..." -ForegroundColor Yellow
 Read-Host
@@ -75,6 +83,7 @@ if ($ApiJob) {
 }
 # 兜底：强制结束残留的 uvicorn 进程
 Get-Process -Name "uvicorn" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-Stop-Process -Id $WorkerProc.Id -Force -ErrorAction SilentlyContinue
+Stop-Process -Id $GpuWorkerProc.Id -Force -ErrorAction SilentlyContinue
+Stop-Process -Id $MultimodalWorkerProc.Id -Force -ErrorAction SilentlyContinue
 Stop-Process -Id $ConsumerProc.Id -Force -ErrorAction SilentlyContinue
 Write-Host "[*] 所有服务已停止。" -ForegroundColor Green

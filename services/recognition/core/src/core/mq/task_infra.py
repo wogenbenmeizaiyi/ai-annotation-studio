@@ -2,8 +2,8 @@ import logging
 
 import pika
 
-from core.config import config
 from core.mq.rabbitmq import RabbitMQConnection
+from core.mq.task_routing import TASK_QUEUE_SPECS
 
 logger = logging.getLogger(__name__)
 
@@ -17,38 +17,38 @@ def ensure_task_infra(channel: pika.channel.Channel | None = None) -> None:
         return
 
     ch = channel or RabbitMQConnection.get_channel()
-    ch.exchange_declare(
-        exchange=config.TASK_DEAD_LETTER_EXCHANGE,
-        exchange_type="direct",
-        durable=True,
-    )
-    ch.queue_declare(queue=config.TASK_DEAD_LETTER_QUEUE, durable=True)
-    ch.queue_bind(
-        queue=config.TASK_DEAD_LETTER_QUEUE,
-        exchange=config.TASK_DEAD_LETTER_EXCHANGE,
-        routing_key=config.TASK_DEAD_LETTER_ROUTING_KEY,
-    )
-    ch.exchange_declare(
-        exchange=config.QUEUE_NAME,
-        exchange_type="direct",
-        durable=True,
-    )
-    ch.queue_declare(
-        queue=config.QUEUE_NAME,
-        durable=True,
-        arguments={
-            "x-dead-letter-exchange": config.TASK_DEAD_LETTER_EXCHANGE,
-            "x-dead-letter-routing-key": config.TASK_DEAD_LETTER_ROUTING_KEY,
-        },
-    )
-    ch.queue_bind(
-        queue=config.QUEUE_NAME,
-        exchange=config.QUEUE_NAME,
-        routing_key=config.QUEUE_NAME,
-    )
+    for spec in TASK_QUEUE_SPECS.values():
+        ch.exchange_declare(
+            exchange=spec.dead_letter_exchange,
+            exchange_type="direct",
+            durable=True,
+        )
+        ch.queue_declare(queue=spec.dead_letter_queue, durable=True)
+        ch.queue_bind(
+            queue=spec.dead_letter_queue,
+            exchange=spec.dead_letter_exchange,
+            routing_key=spec.dead_letter_routing_key,
+        )
+        ch.exchange_declare(
+            exchange=spec.exchange_name,
+            exchange_type="direct",
+            durable=True,
+        )
+        ch.queue_declare(
+            queue=spec.queue_name,
+            durable=True,
+            arguments={
+                "x-dead-letter-exchange": spec.dead_letter_exchange,
+                "x-dead-letter-routing-key": spec.dead_letter_routing_key,
+            },
+        )
+        ch.queue_bind(
+            queue=spec.queue_name,
+            exchange=spec.exchange_name,
+            routing_key=spec.routing_key,
+        )
     _task_infra_declared = True
     logger.info(
-        "Declared task queue %s and dead-letter queue %s",
-        config.QUEUE_NAME,
-        config.TASK_DEAD_LETTER_QUEUE,
+        "Declared recognition task queues: %s",
+        ", ".join(spec.queue_name for spec in TASK_QUEUE_SPECS.values()),
     )
