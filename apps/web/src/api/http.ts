@@ -19,11 +19,14 @@ http.interceptors.response.use(
   (response) => {
     const res = response.data as ApiResponse<any>
 
-    if (res.code !== 0 && res.code !== 200) {
-      return Promise.reject(res.message)
+    if (res && typeof res === 'object' && 'code' in res) {
+      if (res.code !== 0 && res.code !== 200) {
+        return Promise.reject(res.message)
+      }
+      return res.data
     }
 
-    return res.data
+    return res
   },
   (error) => Promise.reject(error),
 )

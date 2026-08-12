@@ -30,7 +30,13 @@ interface AuthEnvelope<T> {
   data: T
 }
 
-const unwrap = <T>(response: { data: AuthEnvelope<T> }): T => response.data.data
+const unwrap = <T>(response: { data: AuthEnvelope<T> }): T => {
+  const envelope = response.data
+  if (envelope && typeof envelope === 'object' && 'data' in envelope) {
+    return envelope.data
+  }
+  return envelope as T
+}
 
 export const getAuthErrorMessage = (error: unknown, fallback: string): string => {
   const axiosError = error as AxiosError<AuthEnvelope<unknown>>
