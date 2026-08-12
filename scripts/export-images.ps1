@@ -25,7 +25,8 @@ $BusinessImages = @(
     "ai-studio-annotation:$Tag"
     "ai-studio-auth:$Tag"
     "ai-studio-recognition-api:$Tag"
-    "ai-studio-recognition-worker:$Tag"
+    "ai-studio-recognition-worker-gpu:$Tag"
+    "ai-studio-recognition-worker-multimodal:$Tag"
     "ai-studio-recognition-consumer:$Tag"
 )
 $InfrastructureImages = @(
@@ -112,7 +113,7 @@ function Build-BusinessImages {
         '-t', "ai-studio-recognition-deps:$Tag",
         'services/recognition'
     )
-    foreach ($target in @('api', 'worker', 'consumer')) {
+    foreach ($target in @('api', 'consumer')) {
         Invoke-Docker @(
             'build', '--platform', $Platform,
             '--build-arg', "BASE_IMAGE=ai-studio-recognition-deps:$Tag",
@@ -121,6 +122,19 @@ function Build-BusinessImages {
             'services/recognition'
         )
     }
+    Invoke-Docker @(
+        'build', '--platform', $Platform,
+        '--build-arg', "BASE_IMAGE=ai-studio-recognition-deps:$Tag",
+        '-f', 'services/recognition/Dockerfile.worker-gpu',
+        '-t', "ai-studio-recognition-worker-gpu:$Tag",
+        'services/recognition'
+    )
+    Invoke-Docker @(
+        'build', '--platform', $Platform,
+        '-f', 'services/recognition/Dockerfile.worker-multimodal',
+        '-t', "ai-studio-recognition-worker-multimodal:$Tag",
+        'services/recognition'
+    )
 }
 
 function Test-ImageExists {

@@ -64,10 +64,6 @@ x-recognition-environment: &recognition-environment
   RABBITMQ_USER: ${RABBITMQ_USER}
   RABBITMQ_PASS: ${RABBITMQ_PASS}
   RABBITMQ_VHOST: ${RABBITMQ_VHOST:-/}
-  RABBITMQ_QUEUE_NAME: ${RABBITMQ_QUEUE_NAME:-tasks.image.disease_detection}
-  RABBITMQ_TASK_DLX: ${RABBITMQ_QUEUE_NAME:-tasks.image.disease_detection}.dlx
-  RABBITMQ_TASK_DLQ: ${RABBITMQ_QUEUE_NAME:-tasks.image.disease_detection}.dlq
-  RABBITMQ_TASK_DLQ_ROUTING_KEY: ${RABBITMQ_QUEUE_NAME:-tasks.image.disease_detection}.dlq
   RABBITMQ_RESULT_QUEUE: ${RABBITMQ_RESULT_QUEUE:-events.image.disease_detected}
   RABBITMQ_RESULT_EXCHANGE: ${RABBITMQ_RESULT_EXCHANGE:-events.image.disease_detected}
   RABBITMQ_RESULT_DLX: ${RABBITMQ_RESULT_QUEUE:-events.image.disease_detected}.dlx
@@ -209,8 +205,9 @@ services:
           - ai-recognition
     restart: unless-stopped
 
-  recognition-worker:
-    image: ai-studio-recognition-worker:${BUSINESS_IMAGE_TAG:-local}
+  recognition-worker-gpu:
+    image: ai-studio-recognition-worker-gpu:${BUSINESS_IMAGE_TAG:-local}
+    hostname: recognition-worker-gpu
     environment: *recognition-environment
     depends_on:
       recognition-migrate:
@@ -218,20 +215,49 @@ services:
     volumes:
       - ../../services/recognition/logs:/app/logs
       - ../../services/recognition/models:/app/models
-      - auth-public-key:/keys/public:ro
     command:
       - python
       - -m
       - celery
       - -A
-      - worker_server.celery_app
+      - worker_server_gpu.celery_app
       - worker
       - --loglevel=info
-      - --logfile=/app/logs/worker.log
-      - -Q
-      - ${RABBITMQ_QUEUE_NAME:-tasks.image.disease_detection}
-      - --prefetch-multiplier=1
+      - --logfile=/app/logs/worker-gpu.log
+      - --hostname=recognition-gpu@%h
+      - --pidfile=/tmp/celery-gpu.pid
+      - --pool=solo
       - --concurrency=1
+      - --prefetch-multiplier=1
+      - -Q
+      - tasks.image.recognition.yolo,tasks.image.recognition.sam
+    restart: unless-stopped
+
+  recognition-worker-multimodal:
+    image: ai-studio-recognition-worker-multimodal:${BUSINESS_IMAGE_TAG:-local}
+    hostname: recognition-worker-multimodal
+    environment: *recognition-environment
+    depends_on:
+      recognition-migrate:
+        condition: service_completed_successfully
+    volumes:
+      - ../../services/recognition/logs:/app/logs
+    command:
+      - python
+      - -m
+      - celery
+      - -A
+      - worker_server_multimodal.celery_app
+      - worker
+      - --loglevel=info
+      - --logfile=/app/logs/worker-multimodal.log
+      - --hostname=recognition-multimodal@%h
+      - --pidfile=/tmp/celery-multimodal.pid
+      - --pool=threads
+      - --concurrency=4
+      - --prefetch-multiplier=1
+      - -Q
+      - tasks.image.recognition.multimodal
     restart: unless-stopped
 
   recognition-consumer:

@@ -25,7 +25,7 @@ usage() {
 
 操作：
   init          生成独立部署环境文件，不启动容器
-  build         根据当前源码构建 6 个业务镜像
+  build         根据当前源码构建 7 个业务镜像
   up            构建镜像并启动完整服务（默认）
   restart       重新构建并重建业务容器
   down          停止容器，保留数据库和对象存储数据
@@ -243,7 +243,6 @@ PUBLIC_MAX_IMAGES=100
 PUBLIC_MAX_UPLOAD_BYTES=20971520
 PUBLIC_IMAGE_URL_ALLOWLIST=
 
-RABBITMQ_QUEUE_NAME=tasks.image.disease_detection
 RABBITMQ_RESULT_QUEUE=events.image.disease_detected
 RABBITMQ_RESULT_EXCHANGE=events.image.disease_detected
 
@@ -355,7 +354,7 @@ build_business_images() {
         services/recognition
 
     local target
-    for target in api worker consumer; do
+    for target in api consumer; do
         docker build \
             --platform linux/amd64 \
             --build-arg "BASE_IMAGE=ai-studio-recognition-deps:$image_tag" \
@@ -363,6 +362,17 @@ build_business_images() {
             -t "ai-studio-recognition-$target:$image_tag" \
             services/recognition
     done
+    docker build \
+        --platform linux/amd64 \
+        --build-arg "BASE_IMAGE=ai-studio-recognition-deps:$image_tag" \
+        -f services/recognition/Dockerfile.worker-gpu \
+        -t "ai-studio-recognition-worker-gpu:$image_tag" \
+        services/recognition
+    docker build \
+        --platform linux/amd64 \
+        -f services/recognition/Dockerfile.worker-multimodal \
+        -t "ai-studio-recognition-worker-multimodal:$image_tag" \
+        services/recognition
 }
 
 gpu_enabled=false

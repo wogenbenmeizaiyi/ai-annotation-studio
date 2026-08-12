@@ -625,9 +625,17 @@ try {
 
         if ($Profile -eq 'full') {
             $recognitionCelery = Join-Path $RecognitionService '.venv\Scripts\celery.exe'
-            Start-ManagedProcess 'recognition-worker' $recognitionCelery @(
-                '-A', 'worker_server.celery_app', 'worker', '--loglevel=info', '--pool=solo',
-                '-Q', 'tasks.image.disease_detection', '--concurrency=1'
+            Start-ManagedProcess 'recognition-worker-gpu' $recognitionCelery @(
+                '-A', 'worker_server_gpu.celery_app', 'worker', '--loglevel=info',
+                '--pool=solo', '--concurrency=1', '--prefetch-multiplier=1',
+                '--hostname=recognition-gpu@%h', '-Q',
+                'tasks.image.recognition.yolo,tasks.image.recognition.sam'
+            ) $RecognitionService $recognitionEnvironmentVariables
+            Start-ManagedProcess 'recognition-worker-multimodal' $recognitionCelery @(
+                '-A', 'worker_server_multimodal.celery_app', 'worker', '--loglevel=info',
+                '--pool=threads', '--concurrency=4',
+                '--hostname=recognition-multimodal@%h', '-Q',
+                'tasks.image.recognition.multimodal'
             ) $RecognitionService $recognitionEnvironmentVariables
             $recognitionPython = Join-Path $RecognitionService '.venv\Scripts\python.exe'
             Start-ManagedProcess 'recognition-consumer' $recognitionPython @(

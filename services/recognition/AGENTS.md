@@ -4,8 +4,8 @@ This file provides guidance to Qoder (qoder.com) when working with code in this 
 
 ## Project Overview
 
-Python 3.12+, `uv` package manager. FastAPI REST API (port 7987) + Celery worker via RabbitMQ.
-4 recognition services inheriting from `BaseRecognitionService` (YOLO, SAM, Qwen-VL).
+Python 3.12+, `uv` package manager. FastAPI REST API (port 7987) + Celery workers via RabbitMQ.
+4 recognition services inheriting from `BaseRecognitionService` (YOLO, SAM, Qwen-VL), split across a serial GPU worker and a concurrent multimodal worker.
 
 ## Commands
 
@@ -22,15 +22,18 @@ uv run <script>                 # Run Python with project env
 # API server
 PYTHONPATH=api/src:worker/src:consumer/src:core/src:engine/src uv run uvicorn api_server:app --host 0.0.0.0 --port 7987 --reload
 
-# Celery worker (Windows: solo pool is auto-configured in worker/src/worker_server.py)
-PYTHONPATH=api/src:worker/src:consumer/src:core/src:engine/src uv run celery -A worker_server.celery_app worker --loglevel=info --pool=solo
+# GPU worker: one process, serial YOLO/SAM execution
+PYTHONPATH=api/src:worker/src:consumer/src:core/src:engine/src uv run celery -A worker_server_gpu.celery_app worker --loglevel=info --pool=solo --concurrency=1 --prefetch-multiplier=1 -Q tasks.image.recognition.yolo,tasks.image.recognition.sam
+
+# Multimodal worker: external API calls run concurrently across tasks
+PYTHONPATH=api/src:worker/src:consumer/src:core/src:engine/src uv run celery -A worker_server_multimodal.celery_app worker --loglevel=info --pool=threads --concurrency=4 -Q tasks.image.recognition.multimodal
 
 # Flower monitoring
-PYTHONPATH=api/src:worker/src:consumer/src:core/src:engine/src uv run celery -A worker_server.celery_app flower
+PYTHONPATH=api/src:worker/src:consumer/src:core/src:engine/src uv run celery -A worker_server_gpu.celery_app flower
 
 # Quick start scripts
-.\start.ps1                     # PowerShell — starts API + worker via .venv directly
-bash start.sh start             # Linux — background daemon with start|stop|status
+.\start.ps1                     # PowerShell — starts API + both workers + result consumer
+bash start.sh start             # Linux — starts API + both workers; start|stop|status
 ```
 
 ### Testing
@@ -145,9 +148,11 @@ Routers are mounted in `api/src/api_server.py`:
 
 - **Broker:** RabbitMQ (`amqp://...` from `.env`)
 - **Backend:** Redis (`redis://...` from `.env`)
-- **Queue:** `tasks.image.disease_detection`
+- **Fixed queues:** `tasks.image.recognition.yolo`, `tasks.image.recognition.sam`, `tasks.image.recognition.multimodal` (not environment-configurable)
+- **Fixed worker concurrency:** GPU `1`; multimodal task threads `4`
 - **Result exchange:** `events.image.disease_detected` (fanout)
-- **Entry:** `worker/src/worker_server.py`; Tasks: `worker/src/tasks/recognize.py`
+- **Entries:** `worker/src/worker_server_gpu.py`, `worker/src/worker_server_multimodal.py`
+- **Tasks:** `worker/src/tasks/gpu.py`, `worker/src/tasks/multimodal.py`; shared execution remains in `worker/src/tasks/recognize.py`
 
 The worker uses **two result channels**:
 1. Celery result backend (Redis) — polled by `GET /result/{task_id}`

@@ -85,7 +85,8 @@ business_images=(
     "ai-studio-annotation:$tag"
     "ai-studio-auth:$tag"
     "ai-studio-recognition-api:$tag"
-    "ai-studio-recognition-worker:$tag"
+    "ai-studio-recognition-worker-gpu:$tag"
+    "ai-studio-recognition-worker-multimodal:$tag"
     "ai-studio-recognition-consumer:$tag"
 )
 infrastructure_images=(

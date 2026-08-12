@@ -14,6 +14,7 @@ from core.storage.model_cache import ModelUnavailableError, ensure_model_availab
 from core.mq import (
     get_recognition_task_result,
 )
+from core.mq.task_routing import UnsupportedDetectionType, normalize_detection_type
 from core.storage.recognition_result_storage import get_recognition_task_record
 from core.config import config
 from core.public_security import validate_public_images
@@ -38,7 +39,10 @@ from engine.services import (
     YoloDetectionService,
     YoloSegmentationService,
 )
-from recognition_submission import submit_recorded_recognition
+from recognition_submission import (
+    RecognitionTaskPublishError,
+    submit_recorded_recognition,
+)
 
 router = APIRouter(tags=["recognition"])
 logger = logging.getLogger(__name__)
@@ -266,9 +270,13 @@ async def submit_recognition(
 ):
     """提交识别任务，并记录任务状态。"""
     validate_public_images(request.images)
+    try:
+        detection_type = normalize_detection_type(request.detection_type)
+    except UnsupportedDetectionType as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     return _submit_recorded_request(
         RecognitionRecordedSubmitRequest(
-            detection_type=request.detection_type,
+            detection_type=detection_type,
             text=request.text,
             images=request.images,
             project_name=request.project_name,
@@ -285,6 +293,13 @@ def _submit_recorded_request(
     logger.info("submit recognition request received")
     try:
         task_id = submit_recorded_recognition(request, db)
+    except UnsupportedDetectionType as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RecognitionTaskPublishError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="recognition task broker unavailable",
+        ) from exc
     except Exception as exc:
         logger.exception("submit recognition request failed")
         raise HTTPException(

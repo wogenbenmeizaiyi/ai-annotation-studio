@@ -2,15 +2,16 @@
 
 ## 服务组成
 
-本项目当前拆成三个独立运行的服务:
+本项目当前拆成四个独立运行的进程:
 
 | 服务 | 入口 | 作用 |
 | --- | --- | --- |
 | API 服务 | `api_server:app` | 接收外部 HTTP 请求，提交识别任务，写入任务记录 |
-| Celery Worker | `worker_server` | 消费识别任务，执行模型识别，发布识别结果 |
+| GPU Worker | `worker_server_gpu.celery_app` | 串行消费 YOLO/SAM 队列，执行 GPU 推理 |
+| 多模态 Worker | `worker_server_multimodal.celery_app` | 并发消费多模态队列，调用外部 API |
 | Consumer | `result_consumer` | 消费识别结果，根据 `task_id` 找到回调地址并执行回调重试 |
 
-Windows 下可用 `start.ps1` 同时启动这三个服务。
+Windows 下可用 `start.ps1` 同时启动这四个进程。
 
 ## 核心链路
 
@@ -18,8 +19,8 @@ Windows 下可用 `start.ps1` 同时启动这三个服务。
 外部调用方
   -> POST /api/recognition/recognize
   -> API 入库 recognition_task_records(status=pending)
-  -> API 通过 Celery 投递任务到 tasks.image.disease_detection
-  -> Worker 消费任务并执行识别
+  -> API 根据 detection_type 选择 YOLO / SAM / multimodal 队列
+  -> GPU Worker 串行执行 YOLO/SAM，或多模态 Worker 并发调用外部 API
   -> Worker 分批写入 recognition_image_results
   -> Worker 更新 recognition_task_records.result_payload
   -> API 通过分页接口查询任务和单图识别结果
@@ -27,13 +28,10 @@ Windows 下可用 `start.ps1` 同时启动这三个服务。
 
 ## 关键配置
 
+任务拓扑固定为三条 direct 队列：`tasks.image.recognition.yolo`（类型 1/2）、`tasks.image.recognition.sam`（类型 3）和 `tasks.image.recognition.multimodal`（类型 4）。GPU Worker 固定单并发，多模态 Worker 固定任务级线程并发 4；这些值不作为环境配置。
+
 | 配置项 | 默认值 | 说明 |
 | --- | --- | --- |
-| `RABBITMQ_QUEUE_NAME` | `tasks.image.disease_detection` | Celery worker 消费的识别任务队列 |
-| `RABBITMQ_TASK_DLX` | `tasks.image.disease_detection.dlx` | 识别任务死信交换机 |
-| `RABBITMQ_TASK_DLQ` | `tasks.image.disease_detection.dlq` | 识别任务死信队列 |
-| `RABBITMQ_TASK_DLQ_ROUTING_KEY` | `tasks.image.disease_detection.dlq` | 识别任务进入死信队列时使用的 routing key |
-| `RECOGNIZE_IMAGE_TASK_NAME` | `recognize_image` | Celery 任务名称，API 和 worker 必须一致 |
 | `RABBITMQ_RESULT_EXCHANGE` | `events.image.disease_detected` | Worker 发布识别结果的 fanout exchange |
 | `RABBITMQ_RESULT_QUEUE` | `events.image.disease_detected` | Consumer 订阅的结果队列 |
 | `RABBITMQ_RESULT_DLX` | `events.image.disease_detected.dlx` | 识别结果死信交换机 |
@@ -157,13 +155,19 @@ GET /api/recognition/tasks/results
 API 不直接 import worker task，而是通过 Celery 任务名投递:
 
 ```python
+spec = get_task_queue_spec(payload.detection_type)
 celery_app.send_task(
-    config.RECOGNIZE_IMAGE_TASK_NAME,
+    spec.task_name,
     kwargs=payload.to_dict(),
-    queue=config.QUEUE_NAME,
-    routing_key=config.QUEUE_NAME,
+    exchange=spec.exchange_name,
+    queue=spec.queue_name,
+    routing_key=spec.routing_key,
 )
 ```
+
+YOLO/SAM 使用任务名 `recognition.process_gpu`，多模态使用 `recognition.process_multimodal`。三条队列各自使用同名 direct exchange 和 routing key，并自动声明独立的 `.dlx`、`.dlq`。Worker 会校验消息 routing key 与 `detection_type`；错投消息不会占用错误的资源池，而是标记失败后进入来源队列的 DLQ。整体重试保持原 exchange、queue 和 routing key。
+
+旧 `RABBITMQ_QUEUE_NAME` / `tasks.image.disease_detection` 不参与新任务投递或消费。部署切换不会迁移或删除旧队列中的遗留消息。
 
 `RecognitionSubmitRequest` 和 `RecognitionRecordedSubmitRequest` 是 API 请求模型。
 
@@ -171,19 +175,23 @@ celery_app.send_task(
 
 ## Worker 处理
 
-任务文件:
+任务文件和入口:
 
-- `worker/src/tasks/recognize.py`
+- `worker/src/tasks/gpu.py` / `worker_server_gpu.celery_app`
+- `worker/src/tasks/multimodal.py` / `worker_server_multimodal.celery_app`
 
 Worker 执行流程:
 
-1. 根据 `detection_type` 选择识别服务。
-2. 下载图片并执行识别。
-3. 将模型响应序列化为单图结果结构。
-4. 如果任务存在 `recognition_task_records` 记录，则按 `RESULT_DB_BATCH_SIZE` 分批写入 `recognition_image_results`。
-5. 所有图片完成后更新 `recognition_task_records.result_payload` 为轻量汇总信息。
-6. 当前暂停调用 `publish_result(result_summary)`，不发布轻量 `task_completed` 事件。
-7. Celery backend 只保留任务进度，不保存完整识别结果。
+1. 入口校验 routing key 和 `detection_type` 是否属于当前资源池。
+2. GPU Worker 按固定的 `solo + concurrency=1 + prefetch=1` 串行执行 YOLO/SAM；多模态 Worker 用固定 4 线程并发任务。
+3. 下载图片并执行识别；每个多模态任务内部仍逐图串行。
+4. 将模型响应序列化为单图结果结构。
+5. 如果任务存在 `recognition_task_records` 记录，则按 `RESULT_DB_BATCH_SIZE` 分批写入 `recognition_image_results`。
+6. 所有图片完成后更新 `recognition_task_records.result_payload` 为轻量汇总信息。
+7. 当前暂停调用 `publish_result(result_summary)`，不发布轻量 `task_completed` 事件。
+8. Celery backend 只保留任务进度，不保存完整识别结果。
+
+GPU Worker 检查系统内存和 GPU 显存，并在任务结束后释放模型和 CUDA 缓存；多模态 Worker 不导入 GPU 推理栈，只检查系统内存。GPU Worker 只允许部署一个实例，当前没有跨进程 GPU 锁。
 
 注意：结果队列发布逻辑仍保留在代码中，但当前被 `publish_result_queue = False` 关闭。
 

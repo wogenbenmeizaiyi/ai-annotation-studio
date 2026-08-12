@@ -31,14 +31,15 @@ services:
     networks:
       - gateway-net
 
-  worker:
-    image: image_detection_service_worker:latest
+  worker-gpu:
+    image: ai-studio-recognition-worker-gpu:latest
     build:
       context: .
-      dockerfile: Dockerfile.worker
+      dockerfile: Dockerfile.worker-gpu
       args:
         BASE_IMAGE: ${BASE_IMAGE:-image_detection_service_deps:latest}
-    container_name: image_detection_service_worker
+    container_name: image_detection_service_worker_gpu
+    hostname: recognition-worker-gpu
     restart: unless-stopped
     env_file:
       - .env
@@ -56,12 +57,38 @@ services:
       - ./logs:/app/logs
       - ./models:/app/models
     command: >
-      python -m celery -A worker_server.celery_app worker
+      python -m celery -A worker_server_gpu.celery_app worker
       --loglevel=info
-      --logfile=/app/logs/worker.log
-      -Q ${RABBITMQ_QUEUE_NAME:?RABBITMQ_QUEUE_NAME is required}
+      --logfile=/app/logs/worker-gpu.log
+      --hostname=recognition-gpu@%h
+      --pidfile=/tmp/celery-gpu.pid
+      --pool=solo
+      -Q tasks.image.recognition.yolo,tasks.image.recognition.sam
       --prefetch-multiplier=1
       --concurrency=1
+
+  worker-multimodal:
+    image: ai-studio-recognition-worker-multimodal:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.worker-multimodal
+    container_name: image_detection_service_worker_multimodal
+    hostname: recognition-worker-multimodal
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./logs:/app/logs
+    command: >
+      python -m celery -A worker_server_multimodal.celery_app worker
+      --loglevel=info
+      --logfile=/app/logs/worker-multimodal.log
+      --hostname=recognition-multimodal@%h
+      --pidfile=/tmp/celery-multimodal.pid
+      --pool=threads
+      -Q tasks.image.recognition.multimodal
+      --prefetch-multiplier=1
+      --concurrency=4
 
   consumer:
     image: image_detection_service_consumer:latest

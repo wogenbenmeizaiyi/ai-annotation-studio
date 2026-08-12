@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 在 GitLab CI 中运行（无容器镜像仓库 + 外部基础设施方案）：
 #   SSH 到服务器 git pull 最新代码，把所有 GitLab 环境变量打包传过去，
-#   服务器上 export 后本地构建 6 个业务镜像并用 infra/server/compose.yml 启动。
+#   服务器上 export 后本地构建 7 个业务镜像并用 infra/server/compose.yml 启动。
 #   compose.yml 直接通过 ${VAR} 把环境变量注入容器，不再生成 .env 文件。
 #
 # 需要的前置（在 .gitlab-ci.yml 的 before_script 中准备 ~/.ssh/id_ed25519）：
@@ -156,10 +156,14 @@ docker build --platform linux/amd64 --build-arg "BASE_IMAGE=ai-studio-auth-deps:
     -f services/auth/Dockerfile -t "ai-studio-auth:$IMAGE_TAG" services/auth
 
 docker build --platform linux/amd64 -f services/recognition/Dockerfile.deps -t "ai-studio-recognition-deps:$IMAGE_TAG" services/recognition
-for target in api worker consumer; do
+for target in api consumer; do
     docker build --platform linux/amd64 --build-arg "BASE_IMAGE=ai-studio-recognition-deps:$IMAGE_TAG" \
         -f "services/recognition/Dockerfile.$target" -t "ai-studio-recognition-$target:$IMAGE_TAG" services/recognition
 done
+docker build --platform linux/amd64 --build-arg "BASE_IMAGE=ai-studio-recognition-deps:$IMAGE_TAG" \
+    -f services/recognition/Dockerfile.worker-gpu -t "ai-studio-recognition-worker-gpu:$IMAGE_TAG" services/recognition
+docker build --platform linux/amd64 -f services/recognition/Dockerfile.worker-multimodal \
+    -t "ai-studio-recognition-worker-multimodal:$IMAGE_TAG" services/recognition
 
 # ---------- 检测 GPU ----------
 GPU_ARGS=()

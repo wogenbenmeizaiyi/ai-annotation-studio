@@ -1,11 +1,9 @@
-import gc
 from abc import ABC, abstractmethod
 
 import io
 import json
 
 from PIL import Image
-import torch
 
 from core.config import config
 from core.s3.s3_client import s3
@@ -34,11 +32,8 @@ class BaseRecognitionService(ABC):
     async def recognize(self, request: RecognitionRequest) -> RecognitionResponse: ...
 
     def release_resources(self) -> None:
-        """释放仅适用于短生命周期直连请求的模型与 CUDA 缓存。"""
+        """释放服务自身资源；GPU 缓存由 GPU 子类处理。"""
         self._release_model_resources()
-        gc.collect()
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
 
     def _release_model_resources(self) -> None:
         """子类按需清除自身持有的模型引用。"""
