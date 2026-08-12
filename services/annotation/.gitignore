@@ -11,6 +11,7 @@ storage/train_data/
 !/app/models/
 *.log
 *.pt
+!yolo26n.pt
 .venv/
 venv/
 env/
