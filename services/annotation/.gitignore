@@ -4,6 +4,10 @@ storage/images/
 storage/jsons/
 storage/train_data/
 /models
+!/models/
+!/models/.gitkeep
+!/models/yolo_models/
+!/models/yolo_models/.gitkeep
 !/app/models/
 *.log
 *.pt

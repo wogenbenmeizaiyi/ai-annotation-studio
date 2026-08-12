@@ -1,0 +1,3 @@
+# 模型文件不入 Git，请将权重文件放置到本目录：
+# - sam3.pt            SAM3 分割模型（annotations 使用）
+# - yolo_models/       YOLO 预训练/训练模型目录（训练时使用）
