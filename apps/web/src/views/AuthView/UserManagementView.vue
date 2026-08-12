@@ -25,6 +25,7 @@
         :items="users"
         :loading="loading"
         item-value="id"
+        no-data-text="暂无符合当前状态的用户"
         hide-default-footer
       >
         <template #item.identity="{ item }">
@@ -105,19 +106,23 @@
       </div>
     </section>
 
-    <v-dialog v-model="resetDialog" max-width="440">
-      <v-card>
-        <v-card-title>重置 {{ resetTarget?.display_name }} 的密码</v-card-title>
-        <v-card-text>
+    <v-dialog v-model="resetDialog" max-width="560">
+      <v-card class="studio-dialog-card reset-password-card">
+        <v-card-title class="reset-password-title">
+          重置「{{ resetTarget?.display_name }}」的密码
+        </v-card-title>
+        <v-card-text class="studio-dialog-body reset-password-body">
           <p class="dialog-note">重置后该用户的现有会话立即失效，下次登录必须再次修改密码。</p>
           <v-text-field
             v-model="newPassword"
             label="临时密码（至少 12 位）"
             type="password"
+            autocomplete="new-password"
+            class="reset-password-field"
             autofocus
           />
         </v-card-text>
-        <v-card-actions>
+        <v-card-actions class="studio-dialog-actions reset-password-actions">
           <v-spacer />
           <v-btn variant="text" @click="resetDialog = false">取消</v-btn>
           <v-btn color="primary" :loading="busyId === resetTarget?.id" @click="submitReset"
@@ -274,6 +279,25 @@ onMounted(() => loadUsers())
 .dialog-note {
   margin: 0;
   color: var(--studio-ink-subtle);
+}
+.reset-password-title {
+  padding: 24px 24px 12px;
+  font-size: 20px;
+  line-height: 1.4;
+  white-space: normal;
+}
+.reset-password-body {
+  padding: 8px 24px 12px;
+}
+.dialog-note {
+  margin-bottom: 24px;
+  line-height: 1.65;
+}
+.reset-password-field {
+  margin-top: 4px;
+}
+.reset-password-actions {
+  padding: 8px 16px 16px;
 }
 .status-filter {
   max-width: 220px;

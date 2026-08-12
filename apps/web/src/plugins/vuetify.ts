@@ -1,8 +1,14 @@
 import 'vuetify/styles'
 import '@mdi/font/css/materialdesignicons.css'
 import { createVuetify } from 'vuetify'
+import { zhHans } from 'vuetify/locale'
 
 export default createVuetify({
+  locale: {
+    locale: 'zhHans',
+    fallback: 'zhHans',
+    messages: { zhHans },
+  },
   icons: {
     defaultSet: 'mdi',
   },
