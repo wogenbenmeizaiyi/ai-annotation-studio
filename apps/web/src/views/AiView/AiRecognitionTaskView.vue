@@ -146,9 +146,24 @@
               <td class="text-truncate model-text">{{ task.text || '-' }}</td>
               <td class="text-center">{{ task.image_count }}</td>
               <td>
-                <v-chip size="small" variant="tonal" :color="getTaskStatusColor(task.status)">
-                  {{ getTaskStatusLabel(task.status) }}
-                </v-chip>
+                <div class="task-status">
+                  <v-chip size="small" variant="tonal" :color="getTaskStatusColor(task.status)">
+                    {{ getTaskStatusLabel(task.status) }}
+                  </v-chip>
+                  <v-tooltip v-if="task.status === 'failed'" text="查看错误" location="top">
+                    <template #activator="{ props: activatorProps }">
+                      <v-btn
+                        v-bind="activatorProps"
+                        icon="mdi-information-outline"
+                        size="x-small"
+                        variant="text"
+                        color="error"
+                        aria-label="查看任务错误"
+                        @click="openTaskError(task)"
+                      />
+                    </template>
+                  </v-tooltip>
+                </div>
               </td>
               <td>{{ formatDate(task.created_at) }}</td>
               <td class="text-right">
@@ -254,6 +269,33 @@
       </v-card>
     </v-dialog>
 
+    <v-dialog v-model="showTaskError" max-width="640">
+      <v-card class="studio-dialog-card task-error-dialog">
+        <v-card-title class="studio-dialog-header">
+          <div class="studio-dialog-heading">
+            <div class="studio-dialog-title">任务错误详情</div>
+            <div v-if="selectedErrorTask" class="studio-dialog-subtitle">
+              任务 ID：<span class="studio-dialog-context">{{ selectedErrorTask.task_id }}</span>
+            </div>
+          </div>
+          <v-btn
+            icon="mdi-close"
+            variant="text"
+            size="small"
+            class="studio-dialog-close"
+            @click="showTaskError = false"
+          />
+        </v-card-title>
+        <v-card-text class="studio-dialog-body task-error-body">
+          <div class="task-error-label">
+            <v-icon icon="mdi-alert-circle-outline" size="18" />
+            失败原因
+          </div>
+          <pre class="task-error-message">{{ selectedErrorMessage }}</pre>
+        </v-card-text>
+      </v-card>
+    </v-dialog>
+
     <v-dialog v-model="showResultDetail" max-width="1280" scrollable>
       <v-card class="studio-dialog-card result-detail-dialog">
         <v-card-title class="studio-dialog-header">
@@ -289,7 +331,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { getRecognitionTaskResults, getRecognitionTasks } from '@/api/services'
 import RecognitionResultPreview from '@/components/ai/RecognitionResultPreview.vue'
 import AppSnackbar from '@/components/common/AppSnackbar.vue'
@@ -316,9 +358,11 @@ const endDateMenuOpen = ref(false)
 const startDateValue = ref<unknown>(null)
 const endDateValue = ref<unknown>(null)
 const selectedTask = ref<RecognitionTask | null>(null)
+const selectedErrorTask = ref<RecognitionTask | null>(null)
 const selectedResult = ref<RecognitionResultItem | null>(null)
 const selectedResultJson = ref('')
 const showResults = ref(false)
+const showTaskError = ref(false)
 const showResultDetail = ref(false)
 
 const taskPage = ref({ current: 1, totalPages: 1 })
@@ -478,6 +522,15 @@ const openTaskResults = async (task: RecognitionTask) => {
   showResults.value = true
   await loadTaskResults()
 }
+
+const openTaskError = (task: RecognitionTask) => {
+  selectedErrorTask.value = task
+  showTaskError.value = true
+}
+
+const selectedErrorMessage = computed(
+  () => selectedErrorTask.value?.error?.trim() || '该历史任务未记录详细错误信息。',
+)
 
 const openResultDetail = (result: RecognitionResultItem) => {
   selectedResult.value = result
@@ -688,6 +741,13 @@ onMounted(() => {
   max-width: 220px;
 }
 
+.task-status {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
 .empty-cell {
   padding: 56px !important;
   color: rgba(var(--v-theme-on-surface), 0.6);
@@ -704,6 +764,41 @@ onMounted(() => {
   height: min(760px, calc(100vh - 80px));
   display: flex;
   flex-direction: column;
+}
+
+.task-error-dialog {
+  overflow: hidden;
+}
+
+.task-error-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.task-error-label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: rgb(var(--v-theme-error));
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.task-error-message {
+  max-height: min(360px, 50vh);
+  margin: 0;
+  padding: 14px 16px;
+  overflow: auto;
+  border: 1px solid rgba(var(--v-theme-error), 0.2);
+  border-radius: 8px;
+  background: rgba(var(--v-theme-error), 0.06);
+  color: rgba(var(--v-theme-on-surface), 0.86);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .result-table-content {

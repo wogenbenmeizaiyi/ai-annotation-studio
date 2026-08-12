@@ -128,6 +128,7 @@ def _serialize_task_record(row: RecognitionTaskRecord) -> dict:
         "text": request_payload.get("text"),
         "project_name": request_payload.get("project_name"),
         "image_count": image_count,
+        "error": row.last_callback_error if row.status == "failed" else None,
         "completed_at": _datetime_to_text(row.completed_at),
         "created_at": _datetime_to_text(row.created_at),
         "updated_at": _datetime_to_text(row.updated_at),
