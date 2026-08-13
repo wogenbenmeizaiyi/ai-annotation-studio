@@ -1,11 +1,11 @@
 import asyncio
-import gc
 import logging
 import time
 
 import torch
 
 from core.config import config
+from core.memory import release_process_memory
 from tasks.resources import available_system_memory_mb
 
 logger = logging.getLogger(__name__)
@@ -63,6 +63,4 @@ async def wait_for_gpu_resources(task_id: str, image_index: int) -> None:
 
 
 def release_gpu_cache() -> None:
-    gc.collect()
-    if torch.cuda.is_available():
-        torch.cuda.empty_cache()
+    release_process_memory()

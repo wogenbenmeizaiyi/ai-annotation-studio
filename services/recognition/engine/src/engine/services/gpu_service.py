@@ -1,6 +1,4 @@
-import gc
-
-import torch
+from core.memory import release_process_memory
 
 from engine.services.base_service import BaseRecognitionService
 
@@ -10,6 +8,4 @@ class GpuRecognitionService(BaseRecognitionService):
 
     def release_resources(self) -> None:
         self._release_model_resources()
-        gc.collect()
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
+        release_process_memory()
