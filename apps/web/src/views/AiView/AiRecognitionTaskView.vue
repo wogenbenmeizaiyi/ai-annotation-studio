@@ -132,7 +132,21 @@
           <tbody>
             <tr v-for="task in tasks" :key="task.task_id">
               <td>
-                <code class="task-id">{{ task.task_id }}</code>
+                <div class="resource-id-row task-id-row">
+                  <span class="task-id" :title="task.task_id">{{ formatResourceId(task.task_id) }}</span>
+                  <v-tooltip text="复制 ID" location="top">
+                    <template #activator="{ props }">
+                      <v-btn
+                        v-bind="props"
+                        icon="mdi-content-copy"
+                        size="x-small"
+                        variant="text"
+                        class="copy-id-button"
+                        @click.stop="copyResourceId(task.task_id, '任务 ID')"
+                      />
+                    </template>
+                  </v-tooltip>
+                </div>
               </td>
               <td>{{ task.project_name || '-' }}</td>
               <td>
@@ -338,6 +352,7 @@ import { getRecognitionTaskResults, getRecognitionTasks } from '@/api/services'
 import RecognitionResultPreview from '@/components/ai/RecognitionResultPreview.vue'
 import AppSnackbar from '@/components/common/AppSnackbar.vue'
 import { useSnackbar } from '@/composables/useSnackbar'
+import { copyText } from '@/composables/useClipboard'
 import type {
   AiDetectionType,
   RecognitionResultItem,
@@ -410,6 +425,20 @@ const formatDate = (value: string | null) => {
   if (!value) return '-'
   const date = new Date(value)
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString('zh-CN', { hour12: false })
+}
+
+const formatResourceId = (id: string): string => {
+  if (id.length <= 16) return id
+  return `${id.slice(0, 8)}…${id.slice(-5)}`
+}
+
+const copyResourceId = async (id: string, label: string) => {
+  try {
+    await copyText(id)
+    snackbar.showSnackbar(`${label} 已复制`, 'success')
+  } catch (error) {
+    snackbar.showSnackbar(getErrorMessage(error, `${label} 复制失败`), 'error')
+  }
 }
 
 const formatDuration = (seconds: number | null) => {
@@ -750,9 +779,46 @@ onMounted(() => {
   white-space: nowrap;
 }
 
+.task-id-row {
+  margin-top: 0;
+}
+
 .task-id {
-  color: rgba(var(--v-theme-on-surface), 0.8);
-  font-size: 12px;
+  max-width: 140px;
+  overflow: hidden;
+  color: rgba(var(--v-theme-on-surface), 0.55);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: ui-monospace, 'SFMono-Regular', Consolas, monospace;
+}
+
+.resource-id-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  margin-top: 3px;
+  opacity: 0.72;
+  transition: opacity 0.15s ease;
+}
+
+.resource-id-row:hover {
+  opacity: 1;
+}
+
+.copy-id-button {
+  flex: 0 0 auto;
+  width: 14px;
+  min-width: 14px;
+  height: 14px;
+  min-height: 14px;
+  padding: 0;
+  --v-btn-height: 14px;
+}
+
+.copy-id-button :deep(.v-icon) {
+  font-size: 11px;
 }
 
 .model-text {
