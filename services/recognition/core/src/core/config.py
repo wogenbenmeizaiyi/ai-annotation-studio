@@ -24,7 +24,7 @@ class Config:
     PUBLIC_SUBMIT_RATE = int(os.getenv("PUBLIC_SUBMIT_RATE", "30"))
     PUBLIC_DIRECT_RATE = int(os.getenv("PUBLIC_DIRECT_RATE", "10"))
     PUBLIC_QUERY_RATE = int(os.getenv("PUBLIC_QUERY_RATE", "120"))
-    PUBLIC_MAX_IMAGES = int(os.getenv("PUBLIC_MAX_IMAGES", "100"))
+    PUBLIC_MAX_IMAGES = int(os.getenv("PUBLIC_MAX_IMAGES", "300"))
     PUBLIC_MAX_UPLOAD_BYTES = int(
         os.getenv("PUBLIC_MAX_UPLOAD_BYTES", str(20 * 1024 * 1024))
     )
