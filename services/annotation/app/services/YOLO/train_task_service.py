@@ -1,3 +1,4 @@
+import gc
 import json
 import logging
 import math
@@ -7,6 +8,8 @@ from datetime import datetime, timezone
 from numbers import Real
 from pathlib import Path
 from typing import Any, Optional
+
+import torch
 
 from app.db.database import SessionLocal
 from app.models.train_task import TrainTaskModel
@@ -490,6 +493,20 @@ class TrainTaskService:
             self.task_repo.set_error(db_train_task_id, str(e))
             self._update_db_status(db_train_task_id, "ERROR", str(e))
             self._broadcast_status(db_train_task_id, {"status": "ERROR", "error": str(e)})
+        finally:
+            self._release_model(model, db_train_task_id)
+
+    def _release_model(self, model: Any, db_train_task_id: int) -> None:
+        """释放训练模型并清理 CUDA 缓存，避免常驻内存不归还。"""
+        try:
+            del model
+        except Exception:
+            pass
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            torch.cuda.ipc_collect()
+        logger.info("训练模型已释放，CUDA 缓存已清理: task_id=%s", db_train_task_id)
 
     def _get_supported_yolo_args(self) -> Optional[set[str]]:
         """读取当前 Ultralytics 版本支持的配置项，避免版本差异参数导致训练失败。"""
