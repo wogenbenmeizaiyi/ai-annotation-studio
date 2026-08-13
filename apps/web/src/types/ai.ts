@@ -37,7 +37,9 @@ export interface RecognitionTask {
   project_name: string
   image_count: number
   error: string | null
+  started_at: string | null
   completed_at: string | null
+  duration_seconds: number | null
   created_at: string
   updated_at: string
 }

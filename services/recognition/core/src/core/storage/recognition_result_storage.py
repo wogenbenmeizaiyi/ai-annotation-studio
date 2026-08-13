@@ -34,6 +34,7 @@ def prepare_recognition_result_storage(task_id: str, db: Session) -> bool:
     record.status = "processing"
     record.result_payload = None
     record.completed_at = None
+    record.started_at = datetime.now(UTC)
     record.last_callback_error = None
     record.last_callback_status_code = None
     db.commit()

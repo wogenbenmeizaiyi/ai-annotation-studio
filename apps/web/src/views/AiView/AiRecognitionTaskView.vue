@@ -124,6 +124,7 @@
               <th>模型 / 提示词</th>
               <th class="text-center">图片数</th>
               <th>状态</th>
+              <th class="text-center">耗时</th>
               <th>创建时间</th>
               <th class="text-right">操作</th>
             </tr>
@@ -165,6 +166,7 @@
                   </v-tooltip>
                 </div>
               </td>
+              <td class="text-center">{{ formatDuration(task.duration_seconds) }}</td>
               <td>{{ formatDate(task.created_at) }}</td>
               <td class="text-right">
                 <v-btn
@@ -178,7 +180,7 @@
               </td>
             </tr>
             <tr v-if="!loading && tasks.length === 0">
-              <td colspan="8" class="empty-cell">暂无识别任务</td>
+              <td colspan="9" class="empty-cell">暂无识别任务</td>
             </tr>
           </tbody>
         </v-table>
@@ -408,6 +410,17 @@ const formatDate = (value: string | null) => {
   if (!value) return '-'
   const date = new Date(value)
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString('zh-CN', { hour12: false })
+}
+
+const formatDuration = (seconds: number | null) => {
+  if (seconds === null || seconds === undefined) return '-'
+  if (seconds < 60) return `${seconds.toFixed(1)} 秒`
+  const minutes = Math.floor(seconds / 60)
+  const restSeconds = Math.round(seconds % 60)
+  if (minutes < 60) return `${minutes} 分 ${restSeconds} 秒`
+  const hours = Math.floor(minutes / 60)
+  const restMinutes = minutes % 60
+  return `${hours} 时 ${restMinutes} 分`
 }
 
 const getFileName = (url: string) => {
@@ -696,11 +709,16 @@ onMounted(() => {
 }
 
 .ai-table:not(.result-table) :deep(th:nth-child(7)) {
-  width: 15%;
+  width: 10%;
   white-space: nowrap;
 }
 
 .ai-table:not(.result-table) :deep(th:nth-child(8)) {
+  width: 14%;
+  white-space: nowrap;
+}
+
+.ai-table:not(.result-table) :deep(th:nth-child(9)) {
   width: 8%;
   white-space: nowrap;
 }

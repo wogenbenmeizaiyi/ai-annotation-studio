@@ -31,6 +31,10 @@ class RecognitionTaskRecord(Base):
         DateTime(timezone=True),
         nullable=True,
     )
+    started_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
     completed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
