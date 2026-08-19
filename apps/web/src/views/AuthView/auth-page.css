@@ -1,62 +1,122 @@
+/* Paper + Ink + Cinnabar — Auth pages
+ * 用于 Login / Register / ChangePassword 等公开页
+ */
+
 .auth-page {
   width: 100%;
   height: 100%;
+  min-height: 100vh;
   display: grid;
   place-items: center;
   padding: 24px;
-  background:
-    radial-gradient(circle at 50% -20%, rgba(94, 106, 210, 0.2), transparent 42%),
-    var(--studio-canvas);
+  background: var(--bg-app);
+  overflow: auto;
 }
 
 .auth-card {
   width: min(420px, 100%);
   display: grid;
   gap: 22px;
-  padding: 28px;
-  background: var(--studio-surface-1);
-  border: 1px solid var(--studio-border);
-  border-radius: 14px;
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.4);
+  padding: 32px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 0;
+  box-shadow: var(--shadow-card);
 }
 
 .auth-brand {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-weight: 650;
+  gap: 12px;
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--ink);
 }
-.auth-brand img {
-  width: 28px;
-  height: 28px;
-  object-fit: contain;
+.auth-brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  color: var(--ink);
 }
+.auth-brand-text {
+  display: grid;
+  gap: 0;
+  line-height: 1.2;
+}
+.auth-brand-text small {
+  color: var(--text-subtle);
+  font-size: 11px;
+  font-weight: 400;
+}
+
 .auth-card h1 {
   margin: 0 0 6px;
-  color: var(--studio-ink);
-  font-size: 24px;
+  color: var(--ink);
+  font-family: var(--font-serif);
+  font-size: 26px;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: -0.04em;
 }
 .auth-card p {
   margin: 0;
-  color: var(--studio-ink-subtle);
-  line-height: 1.6;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.65;
 }
 .auth-card form {
   display: grid;
   gap: 4px;
 }
+.auth-card form :deep(.v-btn[type='submit']) {
+  margin-top: 8px;
+  min-height: 48px;
+}
+
 .auth-footnote {
-  color: var(--studio-ink-subtle);
+  color: var(--text-subtle);
   font-size: 13px;
   text-align: center;
 }
 .auth-footnote a {
-  color: rgb(var(--v-theme-primary));
+  color: var(--accent);
   text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.18s;
 }
+.auth-footnote a:hover {
+  border-bottom-color: var(--accent);
+}
+
 .pending-panel {
   display: grid;
   justify-items: center;
-  gap: 14px;
+  gap: 16px;
+  padding: 24px 0;
   text-align: center;
+}
+.pending-panel h1 {
+  margin: 0;
+}
+
+/* 错误条 (无圆角, 浅红底深红字) */
+.auth-card :deep(.v-alert--type-error) {
+  background: var(--status-error-bg) !important;
+  color: var(--status-error) !important;
+  border: 1px solid var(--status-error) !important;
+  border-radius: 0 !important;
+  padding: 12px 14px !important;
+  font-size: 13px !important;
+}
+
+@media (max-width: 520px) {
+  .auth-card {
+    padding: 24px;
+    box-shadow: var(--shadow-card-sm);
+  }
+  .auth-card h1 {
+    font-size: 22px;
+  }
 }

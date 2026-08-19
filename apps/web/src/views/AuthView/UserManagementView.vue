@@ -30,37 +30,56 @@
       >
         <template #item.identity="{ item }">
           <div class="identity-cell">
-            <strong>{{ item.display_name }}</strong
-            ><span>@{{ item.username }}</span>
+            <strong>{{ item.display_name }}</strong>
+            <span>@{{ item.username }}</span>
           </div>
         </template>
         <template #item.role="{ item }">
-          <span v-if="item.is_platform_owner" class="owner-pill">
-            <v-icon icon="mdi-shield-crown-outline" size="14" />
-            平台所有者
-          </span>
-          <v-select
-            v-else
-            :model-value="item.role"
-            :items="roleOptions"
-            density="compact"
-            hide-details
-            class="role-select"
-            :disabled="busyId === item.id || !auth.isPlatformOwner"
-            @update:model-value="(role) => changeRole(item, role)"
-          />
+          <div class="role-cell">
+            <span
+              v-if="item.is_platform_owner"
+              class="role-pill is-owner"
+              :title="`平台所有者 — 不可变更`"
+            >
+              平台所有者
+            </span>
+            <span
+              v-else-if="item.role === 'super_admin'"
+              class="role-pill is-admin"
+            >
+              超级管理员
+            </span>
+            <span v-else class="role-pill is-user">
+              普通用户
+            </span>
+            <button
+              v-if="!item.is_platform_owner && auth.isPlatformOwner"
+              type="button"
+              class="role-toggle"
+              :class="item.role === 'super_admin' ? 'is-demote' : 'is-promote'"
+              :disabled="busyId === item.id"
+              :title="item.role === 'super_admin' ? '降级为普通用户' : '提升为超级管理员'"
+              @click="toggleRole(item)"
+            >
+              <Icon
+                :name="item.role === 'super_admin' ? 'arrow-down' : 'arrow-up'"
+                :size="14"
+              />
+            </button>
+          </div>
         </template>
         <template #item.status="{ item }">
-          <span class="status-pill" :class="`is-${item.status}`">{{
-            statusText[item.status]
-          }}</span>
+          <span class="status-pill" :class="`is-${item.status}`">{{ statusText[item.status] }}</span>
         </template>
         <template #item.created_at="{ item }">{{ formatDate(item.created_at) }}</template>
         <template #item.actions="{ item }">
           <div class="row-actions">
-            <span v-if="!canManageAccount(item)" class="protected-note">
-              <v-icon icon="mdi-lock-outline" size="14" />
-              {{ item.is_platform_owner ? '所有者账号受保护' : '仅所有者可管理' }}
+            <span
+              v-if="!canManageAccount(item)"
+              class="protected-note"
+              :title="item.is_platform_owner ? '所有者账号受保护' : '仅所有者可管理'"
+            >
+              {{ item.is_platform_owner ? '受保护' : '仅所有者' }}
             </span>
             <v-btn
               v-else-if="item.status === 'pending'"
@@ -89,9 +108,11 @@
               v-if="canManageAccount(item)"
               size="small"
               variant="text"
+              :title="`重置 ${item.display_name} 的密码`"
               @click="openReset(item)"
-              >重置密码</v-btn
             >
+              重置
+            </v-btn>
           </div>
         </template>
       </v-data-table>
@@ -137,6 +158,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
+import { Icon } from '@/components/icons'
 import {
   approveUser,
   disableUser,
@@ -152,10 +174,10 @@ import {
 
 const headers = [
   { title: '用户', key: 'identity' },
-  { title: '角色', key: 'role', width: 170 },
-  { title: '状态', key: 'status', width: 120 },
-  { title: '注册时间', key: 'created_at', width: 190 },
-  { title: '', key: 'actions', sortable: false, align: 'end' as const, width: 250 },
+  { title: '角色', key: 'role', width: 200 },
+  { title: '状态', key: 'status', width: 100 },
+  { title: '注册时间', key: 'created_at', width: 150 },
+  { title: '', key: 'actions', sortable: false, align: 'end' as const, width: 260 },
 ]
 const statusOptions = [
   { title: '待审批', value: 'pending' },
@@ -223,14 +245,36 @@ const runAction = async (id: string, action: 'approve' | 'enable' | 'disable') =
 const changeRole = async (user: StudioUser, role: UserRole) => {
   if (role === user.role || !auth.isPlatformOwner || user.is_platform_owner) return
   busyId.value = user.id
+  // 乐观更新 — 直接改本地那行，避免 loadUsers() 触发整表 loading 闪一下
+  const idx = users.value.findIndex((u) => u.id === user.id)
+  const current = idx >= 0 ? users.value[idx] : undefined
+  if (!current) {
+    busyId.value = ''
+    return
+  }
+  const previousRole: UserRole = current.role
+  const applyRole = (next: UserRole) => {
+    const at = users.value.findIndex((u) => u.id === user.id)
+    if (at < 0) return
+    const row = users.value[at]
+    if (!row) return
+    users.value[at] = { ...row, role: next }
+  }
+  applyRole(role)
   try {
     await updateUserRole(user.id, role)
-    await loadUsers()
   } catch (reason) {
+    applyRole(previousRole)
     error.value = getAuthErrorMessage(reason, '角色更新失败')
   } finally {
     busyId.value = ''
   }
+}
+
+const toggleRole = (user: StudioUser) => {
+  if (!auth.isPlatformOwner || user.is_platform_owner) return
+  const nextRole: UserRole = user.role === 'super_admin' ? 'user' : 'super_admin'
+  return changeRole(user, nextRole)
 }
 
 const openReset = (user: StudioUser) => {
@@ -270,27 +314,36 @@ onMounted(() => loadUsers())
   align-items: end;
   justify-content: space-between;
   gap: 18px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--border);
 }
 .management-header h1 {
   margin: 0 0 4px;
-  font-size: 22px;
+  font-family: var(--font-serif);
+  font-size: 28px;
+  font-weight: 500;
+  color: var(--ink);
+  letter-spacing: -0.04em;
 }
 .management-header p,
 .dialog-note {
   margin: 0;
-  color: var(--studio-ink-subtle);
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1.5;
 }
 .reset-password-title {
-  padding: 24px 24px 12px;
+  padding: 20px 20px 12px;
   font-size: 20px;
+  font-weight: 600;
   line-height: 1.4;
   white-space: normal;
 }
 .reset-password-body {
-  padding: 8px 24px 12px;
+  padding: 8px 20px 12px;
 }
 .dialog-note {
-  margin-bottom: 24px;
+  margin-bottom: 20px;
   line-height: 1.65;
 }
 .reset-password-field {
@@ -307,60 +360,133 @@ onMounted(() => loadUsers())
   flex: 1;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  background: var(--studio-surface-1);
-  border: 1px solid var(--studio-border);
-  border-radius: 10px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 0;
 }
 .users-panel :deep(.v-data-table) {
-  min-height: 0;
+  min-width: 760px;
   flex: 1;
 }
 .identity-cell {
   display: grid;
   gap: 2px;
 }
+.identity-cell strong {
+  color: var(--ink);
+  font-weight: 600;
+}
 .identity-cell span {
-  color: var(--studio-ink-subtle);
+  color: var(--text-subtle);
   font-size: 12px;
+  font-family: var(--font-mono);
 }
 .role-select {
   width: 150px;
 }
-.owner-pill,
+
+/* 角色等级 pill — 跟平台所有者同款结构, 用背景色分层级 */
+.role-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+.role-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 120px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  flex-shrink: 0;
+  border: 1px solid transparent;
+}
+.role-pill.is-owner {
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-color: rgba(207, 74, 54, 0.32);
+}
+.role-pill.is-admin {
+  color: var(--sage);
+  background: rgba(94, 107, 85, 0.12);
+  border-color: rgba(94, 107, 85, 0.32);
+}
+.role-pill.is-user {
+  color: var(--text-muted);
+  background: var(--bg-sunken);
+  border-color: var(--border);
+}
+
+/* 升级 / 降级按钮 — 纯图标方形, 弱描边 */
+.role-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.role-toggle.is-promote:hover:not(:disabled) {
+  color: var(--sage);
+  border-color: var(--sage);
+  background: rgba(94, 107, 85, 0.08);
+}
+.role-toggle.is-demote:hover:not(:disabled) {
+  color: var(--status-error);
+  border-color: var(--status-error);
+  background: var(--status-error-bg);
+}
+.role-toggle:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .protected-note {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  color: var(--studio-ink-subtle);
+  gap: 6px;
+  color: var(--text-subtle);
   font-size: 12px;
-}
-.owner-pill {
-  padding: 5px 8px;
-  color: rgb(var(--v-theme-primary));
-  background: rgba(var(--v-theme-primary), 0.1);
-  border-radius: 6px;
 }
 .status-pill {
   display: inline-flex;
-  padding: 3px 8px;
-  border-radius: 999px;
+  align-items: center;
+  padding: 4px 8px;
   font-size: 12px;
-  background: var(--studio-surface-3);
-  color: var(--studio-ink-subtle);
+  font-weight: 500;
+  background: var(--bg-sunken);
+  color: var(--text-muted);
 }
 .status-pill.is-active {
-  color: rgb(var(--v-theme-success));
-  background: rgba(var(--v-theme-success), 0.1);
+  color: var(--status-success);
+  background: var(--status-success-bg);
 }
 .status-pill.is-pending {
-  color: rgb(var(--v-theme-warning));
-  background: rgba(var(--v-theme-warning), 0.1);
+  color: var(--status-warning);
+  background: var(--status-warning-bg);
+}
+.status-pill.is-disabled {
+  color: var(--status-error);
+  background: var(--status-error-bg);
 }
 .row-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 4px;
+  align-items: center;
+  gap: 6px;
 }
 .pagination-bar {
   min-height: 48px;
@@ -368,7 +494,9 @@ onMounted(() => loadUsers())
   align-items: center;
   justify-content: space-between;
   padding: 0 14px;
-  color: var(--studio-ink-subtle);
-  border-top: 1px solid var(--studio-hairline);
+  color: var(--text-subtle);
+  background: var(--bg-elevated);
+  border-top: 1px solid var(--border);
+  font-size: 13px;
 }
 </style>

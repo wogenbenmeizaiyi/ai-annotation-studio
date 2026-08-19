@@ -1,7 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" role="img" aria-label="AI Studio">
   <title>AI Studio</title>
-  <!-- 标注框: 墨色 1.5px 描边 -->
   <rect x="1" y="1" width="22" height="22" fill="none" stroke="#4a4036" stroke-width="1.5"/>
-  <!-- 标注点: 朱砂实心方块, 偏右下 -->
   <rect x="12" y="12" width="7" height="7" fill="#cf4a36"/>
 </svg>

@@ -111,9 +111,10 @@ const blocks = computed<MarkdownBlock[]>(() => {
 <style scoped>
 .markdown-text {
   display: grid;
-  gap: 8px;
-  line-height: 1.65;
-  color: rgb(var(--v-theme-on-surface));
+  gap: 10px;
+  line-height: 1.7;
+  color: var(--text-muted);
+  font-size: 13px;
 }
 
 .markdown-heading,
@@ -123,7 +124,9 @@ const blocks = computed<MarkdownBlock[]>(() => {
 }
 
 .markdown-heading {
-  font-size: 1rem;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
 }
 
 .markdown-list-item {
@@ -133,21 +136,23 @@ const blocks = computed<MarkdownBlock[]>(() => {
 }
 
 .markdown-list-marker {
-  color: rgb(var(--v-theme-primary));
+  color: var(--accent);
   font-weight: 700;
+  font-family: var(--font-italic);
   text-align: right;
 }
 
 strong {
-  font-weight: 700;
+  font-weight: 600;
+  color: var(--ink);
 }
 
 code {
   padding: 1px 5px;
-  border-radius: 4px;
-  background: rgba(var(--v-theme-on-surface), 0.1);
-  color: rgb(var(--v-theme-primary));
-  font-family: Consolas, 'Courier New', monospace;
+  background: var(--bg-sunken);
+  color: var(--accent);
+  border: 1px solid var(--border);
+  font-family: var(--font-mono);
   font-size: 0.9em;
 }
 </style>

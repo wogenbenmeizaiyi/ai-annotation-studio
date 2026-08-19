@@ -1,6 +1,11 @@
 <template>
-  <v-app class="app-shell">
-    <RouterView v-if="publicLayout" />
+  <div class="app-shell">
+    <!-- 公开页 (login / register / change-password / pending) — 整页居中, 不带侧栏 -->
+    <template v-if="publicLayout">
+      <RouterView />
+    </template>
+
+    <!-- 主界面: 侧栏 + workspace -->
     <div v-else class="app-layout" :class="{ 'is-focus-mode': focusMode }">
       <AppSidebar
         :focus-mode="focusMode"
@@ -10,19 +15,19 @@
 
       <div class="app-workspace">
         <div class="app-topbar">
-          <v-btn
-            icon="mdi-menu"
-            variant="text"
-            size="small"
+          <button
+            type="button"
             class="mobile-navigation-trigger"
             aria-label="打开导航"
             @click="mobileNavigationOpen = true"
-          />
+          >
+            <Icon name="menu" :size="20" />
+          </button>
           <BreadcrumbNav />
         </div>
-        <v-main class="app-content">
+        <main class="app-content">
           <RouterView />
-        </v-main>
+        </main>
       </div>
 
       <button
@@ -33,7 +38,7 @@
         @click="closeMobileNavigation"
       />
     </div>
-  </v-app>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -41,6 +46,7 @@ import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import AppSidebar from '@/components/common/AppSidebar.vue'
 import BreadcrumbNav from '@/components/common/BreadcrumbNav.vue'
+import { Icon } from '@/components/icons'
 
 const route = useRoute()
 const mobileNavigationOpen = ref(false)
@@ -66,11 +72,7 @@ watch(
   height: calc(100vh / var(--app-zoom));
   overflow: hidden;
   zoom: var(--app-zoom);
-}
-
-.app-shell :deep(.v-application__wrap) {
-  height: calc(100vh / var(--app-zoom));
-  min-height: 0;
+  background: var(--bg-app);
 }
 
 .app-layout {
@@ -79,7 +81,7 @@ watch(
   min-width: 0;
   min-height: 0;
   display: flex;
-  background: var(--studio-canvas);
+  background: var(--bg-app);
 }
 
 .app-workspace {
@@ -90,40 +92,66 @@ watch(
   flex-direction: column;
 }
 
+/* 纸墨系统的 topbar — 82px 高 (来自设计语言), 1px 描边分隔 */
 .app-topbar {
-  height: 40px;
-  min-height: 40px;
+  height: 64px;
+  min-height: 64px;
   display: flex;
   align-items: center;
-  background: var(--studio-surface-1);
-  border-bottom: 1px solid var(--studio-hairline);
+  gap: 18px;
+  padding: 0 28px;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border);
 }
 
 .mobile-navigation-trigger {
   display: none;
-  margin-left: 6px;
+  width: 36px;
+  height: 36px;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, border-color 0.15s;
+}
+.mobile-navigation-trigger:hover {
+  background: var(--bg-sunken);
+  border-color: var(--ink);
 }
 
 .app-content {
   flex: 1 1 auto;
   min-height: 0;
-  overflow: hidden;
+  overflow: auto;
+  background: var(--bg-app);
 }
 
 .mobile-navigation-scrim {
   position: fixed;
-  z-index: 15;
+  z-index: 25;
   inset: 0;
   display: none;
   padding: 0;
-  background: rgba(0, 0, 0, 0.64);
+  background: var(--ink);
   border: 0;
+  opacity: 0.4;
+  cursor: pointer;
 }
 
 @media (max-width: 840px) {
+  .app-topbar {
+    padding: 0 16px;
+  }
   .mobile-navigation-trigger,
   .mobile-navigation-scrim {
     display: inline-flex;
+  }
+  .mobile-navigation-scrim {
+    display: block;
   }
 }
 </style>

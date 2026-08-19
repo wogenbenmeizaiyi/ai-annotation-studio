@@ -1,42 +1,37 @@
 <template>
   <v-card class="train-monitor" rounded="lg">
     <div class="monitor-header d-flex align-center justify-space-between">
-      <span class="text-h6 font-weight-bold">训练监控</span>
-      <div class="d-flex align-center ga-3">
-        <v-btn
+      <span class="monitor-title">训练监控</span>
+      <div class="monitor-actions">
+        <button
           v-if="trainStatus === 'FINISHED'"
-          color="primary"
-          size="small"
-          variant="tonal"
-          prepend-icon="mdi-chart-box-outline"
+          type="button"
+          class="monitor-action"
           @click="showAnalysisDialog = true"
         >
           训练分析
-        </v-btn>
-        <v-btn
+        </button>
+        <button
           v-if="trainStatus === 'FINISHED' && modelOutputPath"
-          color="success"
-          size="small"
-          variant="tonal"
-          prepend-icon="mdi-download"
-          :loading="isDownloading"
+          type="button"
+          class="monitor-action is-success"
+          :disabled="isDownloading"
           @click="downloadModel"
         >
           下载模型
-        </v-btn>
-        <v-chip :color="statusChipColor" variant="flat" size="small" label>
+        </button>
+        <span class="monitor-status-chip" :class="`is-${(trainStatus || 'default').toLowerCase()}`">
+          <span class="monitor-status-dot" />
           {{ statusTextMap[trainStatus] || trainStatus || '--' }}
-        </v-chip>
-        <v-btn
+        </span>
+        <button
           v-if="trainStatus === 'FINISHED' || trainStatus === 'ERROR'"
-          color="primary"
-          size="small"
-          variant="tonal"
-          prepend-icon="mdi-refresh"
+          type="button"
+          class="monitor-action"
           @click="loadMetrics"
         >
           刷新指标
-        </v-btn>
+        </button>
       </div>
     </div>
 
@@ -68,15 +63,14 @@
             <span class="text-subtitle-2 font-weight-bold">{{ chart.title }}</span>
             <v-tooltip location="top" max-width="320" content-class="metric-tooltip-content">
               <template #activator="{ props: tooltipProps }">
-                <v-btn
+                <button
                   v-bind="tooltipProps"
-                  icon="mdi-help-circle-outline"
-                  variant="text"
-                  density="compact"
-                  size="small"
+                  type="button"
                   class="metric-help"
                   :aria-label="`${chart.title}指标说明`"
-                />
+                >
+                  <Icon name="help" :size="16" />
+                </button>
               </template>
               <div class="metric-tooltip">
                 <div class="metric-tooltip-section metric-tooltip-simple">
@@ -143,6 +137,7 @@ import {
   createTrainEventSource,
   getModelDownloadUrl,
 } from '@/api/services'
+import { Icon } from '@/components/icons'
 
 type ECOption = ComposeOption<
   | LineSeriesOption
@@ -267,6 +262,18 @@ const epochs = computed(() => metrics.value.map((m) => m.epoch))
 const hasMetricValue = (key: keyof TrainEpochMetric) =>
   metrics.value.some((metric) => typeof metric[key] === 'number')
 
+// ECharts 主题 — Paper + Ink + Cinnabar
+const ECHARTS_PALETTE = ['#cf4a36', '#5e6b55', '#8a6e4b', '#b08a3a', '#7b2519', '#d97757']
+
+const ECHARTS_THEME = {
+  ink: '#4a4036',
+  paper: '#f5f0e6',
+  muted: 'rgba(74, 64, 54, 0.5)',
+  line: 'rgba(74, 64, 54, 0.17)',
+  faint: 'rgba(74, 64, 54, 0.08)',
+  accent: '#cf4a36',
+} as const
+
 // 通用的折线图配置生成
 const makeChartOption = (
   keys: { label: string; key: string }[],
@@ -275,17 +282,18 @@ const makeChartOption = (
 ): ECOption => {
   const series = extractSeries(keys)
   return {
+    color: ECHARTS_PALETTE,
     tooltip: {
       trigger: 'axis',
-      backgroundColor: 'rgba(15, 16, 17, 0.96)',
-      borderColor: '#34343a',
-      textStyle: { color: '#f7f8f8', fontSize: 12 },
+      backgroundColor: ECHARTS_THEME.ink,
+      borderColor: ECHARTS_THEME.ink,
+      textStyle: { color: ECHARTS_THEME.paper, fontSize: 12, fontFamily: 'DM Sans, system-ui' },
       valueFormatter: (val: unknown) => (typeof val === 'number' ? val.toFixed(decimals) : '-'),
     },
     legend: {
       data: keys.map((k) => k.label),
       top: 0,
-      textStyle: { color: '#8a8f98', fontSize: 12 },
+      textStyle: { color: ECHARTS_THEME.muted, fontSize: 12 },
     },
     grid: {
       left: 60,
@@ -299,17 +307,17 @@ const makeChartOption = (
       name: 'Epoch',
       nameLocation: 'middle',
       nameGap: 25,
-      axisLine: { lineStyle: { color: '#34343a' } },
-      axisLabel: { color: '#8a8f98' },
-      nameTextStyle: { color: '#8a8f98', fontSize: 12 },
+      axisLine: { lineStyle: { color: ECHARTS_THEME.line } },
+      axisLabel: { color: ECHARTS_THEME.muted },
+      nameTextStyle: { color: ECHARTS_THEME.muted, fontSize: 12 },
     },
     yAxis: {
       type: 'value',
       name: yName,
-      nameTextStyle: { color: '#8a8f98', fontSize: 12 },
-      axisLine: { lineStyle: { color: '#34343a' } },
-      axisLabel: { color: '#8a8f98' },
-      splitLine: { lineStyle: { color: '#23252a' } },
+      nameTextStyle: { color: ECHARTS_THEME.muted, fontSize: 12 },
+      axisLine: { lineStyle: { color: ECHARTS_THEME.line } },
+      axisLabel: { color: ECHARTS_THEME.muted },
+      splitLine: { lineStyle: { color: ECHARTS_THEME.faint } },
     },
     dataZoom: [
       { type: 'inside', start: 0, end: 100 },
@@ -319,19 +327,22 @@ const makeChartOption = (
         end: 100,
         height: 20,
         bottom: 5,
-        borderColor: '#34343a',
-        backgroundColor: '#0f1011',
-        fillerColor: 'rgba(94, 106, 210, 0.22)',
-        textStyle: { color: '#8a8f98' },
+        borderColor: ECHARTS_THEME.line,
+        backgroundColor: 'transparent',
+        fillerColor: 'rgba(207, 74, 54, 0.18)',
+        textStyle: { color: ECHARTS_THEME.muted },
+        handleStyle: { color: ECHARTS_THEME.paper, borderColor: ECHARTS_THEME.line },
       },
     ],
-    series: series.map((s) => ({
+    series: series.map((s, i) => ({
       name: s.name,
       type: 'line',
       data: s.data,
       smooth: true,
       symbol: 'circle',
-      symbolSize: 4,
+      symbolSize: 5,
+      lineStyle: { width: 1.8, color: ECHARTS_PALETTE[i % ECHARTS_PALETTE.length] },
+      itemStyle: { color: ECHARTS_PALETTE[i % ECHARTS_PALETTE.length] },
     })),
   }
 }
@@ -629,39 +640,152 @@ onUnmounted(() => {
   height: 100%;
   min-height: 0;
   overflow: hidden;
-  background: var(--studio-surface-1);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-card-sm);
 }
 
 .monitor-header {
   flex: 0 0 auto;
-  padding: 16px 18px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 16px 20px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.monitor-title {
+  color: var(--ink);
+  font-family: var(--font-serif);
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: -0.04em;
+}
+
+.monitor-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.monitor-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 12px;
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.15s, border-color 0.15s;
+}
+.monitor-action:hover {
+  background: var(--bg-sunken);
+  border-color: var(--border-strong);
+  transform: translateY(-1px);
+}
+.monitor-action:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+.monitor-action.is-success {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.monitor-action.is-success:hover {
+  background: var(--accent-soft);
+}
+
+.monitor-status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 0 12px;
+  color: var(--text);
+  background: var(--bg-sunken);
+  font-size: 12px;
+  font-weight: 500;
+}
+.monitor-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-subtle);
+  box-shadow: 0 0 0 3px rgba(74, 64, 54, 0.08);
+}
+.monitor-status-chip.is-running .monitor-status-dot,
+.monitor-status-chip.is-pending .monitor-status-dot,
+.monitor-status-chip.is-queued .monitor-status-dot,
+.monitor-status-chip.is-claimed .monitor-status-dot,
+.monitor-status-chip.is-recovering .monitor-status-dot {
+  background: var(--sage-dot);
+  box-shadow: 0 0 0 3px rgba(127, 157, 108, 0.18);
+  animation: live-pulse 1.6s ease-in-out infinite;
+}
+.monitor-status-chip.is-finished .monitor-status-dot {
+  background: var(--sage);
+}
+.monitor-status-chip.is-error .monitor-status-dot {
+  background: var(--status-error);
+  box-shadow: 0 0 0 3px rgba(123, 37, 25, 0.18);
+}
+@keyframes live-pulse {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(127, 157, 108, 0.18); }
+  50%      { box-shadow: 0 0 0 6px rgba(127, 157, 108, 0.05); }
 }
 
 .monitor-content {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 12px 18px 18px;
+  padding: 16px 20px 20px;
 }
 
 .charts-section {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
+  gap: 14px;
 }
 
-.charts-section :deep(.v-card) {
-  background: var(--studio-surface-2);
+.chart-card {
+  padding: 16px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
 }
 
 .chart-header {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.chart-title {
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 .metric-help {
-  color: rgba(var(--v-theme-on-surface), 0.62);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: transparent;
+  color: var(--text-subtle);
+  border: 0;
+  cursor: help;
+}
+.metric-help:hover {
+  color: var(--accent);
 }
 
 .metric-tooltip {
@@ -669,12 +793,13 @@ onUnmounted(() => {
   gap: 10px;
   line-height: 1.5;
   font-size: 13px;
+  color: var(--text-on-ink);
 }
 
 .metric-tooltip-section {
   display: grid;
   gap: 4px;
-  padding-left: 8px;
+  padding-left: 10px;
   border-left: 3px solid currentColor;
 }
 
@@ -683,15 +808,19 @@ onUnmounted(() => {
 }
 
 .metric-tooltip-simple {
-  color: #43a047;
+  color: var(--sage-dot);
 }
 
 .metric-tooltip-professional {
-  color: #42a5f5;
+  color: var(--accent);
 }
 
 :global(.metric-tooltip-content) {
-  background: rgba(33, 33, 33, 0.92) !important;
+  background: var(--ink) !important;
+  color: var(--paper) !important;
+  border: 1px solid var(--ink) !important;
+  border-radius: 0 !important;
+  padding: 12px 14px !important;
 }
 
 .chart {
@@ -699,9 +828,45 @@ onUnmounted(() => {
   height: 300px;
 }
 
+.monitor-progress {
+  margin-bottom: 20px;
+}
+.monitor-progress-head {
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-muted);
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+.monitor-progress-bar {
+  height: 8px;
+  background: var(--bg-sunken);
+  position: relative;
+  overflow: hidden;
+}
+.monitor-progress-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--accent);
+  transition: width 0.3s ease;
+}
+
+.monitor-waiting {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 40px;
+  color: var(--text-subtle);
+}
+
 @media (max-width: 900px) {
   .charts-section {
     grid-template-columns: 1fr;
+  }
+  .monitor-header {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
 </style>

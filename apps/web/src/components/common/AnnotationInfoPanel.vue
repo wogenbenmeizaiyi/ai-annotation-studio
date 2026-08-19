@@ -26,9 +26,9 @@
 
   <div class="annotations-list">
     <div v-if="empty" class="empty-state">
-      <v-icon icon="mdi-clipboard-text-outline" size="48" color="grey-lighten-1" />
-      <p class="mt-3">暂无标注</p>
-      <p class="text-caption text-medium-emphasis">{{ emptyHint }}</p>
+      <Icon name="clipboard" :size="48" class="empty-icon" />
+      <p class="empty-title">暂无标注</p>
+      <p class="empty-hint">{{ emptyHint }}</p>
     </div>
 
     <div v-else class="annotations-container">
@@ -38,6 +38,8 @@
 </template>
 
 <script setup lang="ts">
+import { Icon } from '@/components/icons'
+
 defineProps<{
   total: number
   currentTypeLabel: string
@@ -52,8 +54,8 @@ defineProps<{
   gap: 8px;
   justify-content: center;
   padding: 10px 12px;
-  background: var(--studio-surface-1);
-  border-bottom: 1px solid var(--studio-hairline);
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border);
 }
 
 .pagination-section :deep(.v-btn) {
@@ -62,8 +64,8 @@ defineProps<{
 
 .info-summary {
   padding: 15px 16px 13px;
-  background: var(--studio-surface-1);
-  border-bottom: 1px solid var(--studio-hairline);
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border);
 }
 
 .info-summary-heading {
@@ -75,17 +77,20 @@ defineProps<{
 
 .info-eyebrow {
   margin-bottom: 3px;
-  color: var(--studio-ink-tertiary);
-  font-size: 10px;
+  color: var(--accent);
+  font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.7px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
 }
 
 .info-summary h3 {
   margin: 0;
-  color: var(--studio-ink);
-  font-size: 15px;
-  font-weight: 600;
+  color: var(--ink);
+  font-family: var(--font-serif);
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
 }
 
 .annotation-count {
@@ -95,16 +100,15 @@ defineProps<{
   justify-content: flex-end;
   gap: 4px;
   padding: 6px 9px;
-  color: var(--studio-ink-subtle);
-  background: var(--studio-surface-2);
-  border: 1px solid var(--studio-hairline);
-  border-radius: 7px;
+  color: var(--text-muted);
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
   font-size: 11px;
 }
 
 .annotation-count strong {
-  color: var(--studio-ink);
-  font-family: ui-monospace, 'SFMono-Regular', Consolas, monospace;
+  color: var(--ink);
+  font-family: var(--font-mono);
   font-size: 15px;
 }
 
@@ -121,12 +125,15 @@ defineProps<{
 }
 
 .summary-metric span {
-  color: var(--studio-ink-tertiary);
+  color: var(--text-label);
   font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .summary-metric strong {
-  color: var(--studio-ink-muted);
+  color: var(--text);
   font-size: 12px;
   font-weight: 600;
 }
@@ -135,7 +142,7 @@ defineProps<{
   flex: 1;
   overflow-y: auto;
   padding: 10px;
-  background: var(--studio-canvas);
+  background: var(--bg-app);
 }
 
 .annotations-container {
@@ -145,23 +152,43 @@ defineProps<{
 
 .annotations-container :deep(.annotation-card) {
   margin: 0 !important;
-  background: var(--studio-surface-1);
-  border-color: var(--studio-hairline);
-  border-radius: 8px;
+  background: var(--bg-elevated) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 0 !important;
+  box-shadow: var(--shadow-card-xs) !important;
 }
 
 .annotations-container :deep(.annotation-card:hover) {
-  background: var(--studio-surface-2);
-  border-color: var(--studio-hairline-strong);
+  background: var(--bg-card-hover) !important;
+  border-color: var(--ink) !important;
 }
 
 .annotations-container :deep(.annotation-card.annotation-active) {
-  background: rgba(94, 106, 210, 0.12) !important;
+  background: var(--accent-soft) !important;
+  border-color: var(--accent) !important;
 }
 
 .empty-state {
   text-align: center;
   padding: 42px 16px;
-  color: var(--studio-ink-tertiary);
+  color: var(--text-subtle);
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+}
+.empty-icon {
+  color: var(--text-subtle);
+  opacity: 0.5;
+}
+.empty-title {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 500;
+}
+.empty-hint {
+  margin: 0;
+  color: var(--text-subtle);
+  font-size: 12px;
 }
 </style>

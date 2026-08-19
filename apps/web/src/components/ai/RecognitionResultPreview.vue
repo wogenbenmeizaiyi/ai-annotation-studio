@@ -94,6 +94,7 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref, watch } from 'vue'
 import type { AiCocoAnnotation, RecognitionResultItem } from '@/types/ai'
+import { ANNOTATION_COLOR } from '@/config/annotation-palette'
 
 interface Props {
   result: RecognitionResultItem
@@ -107,7 +108,6 @@ const props = withDefaults(defineProps<Props>(), {
 const imageLoadError = ref(false)
 const previewImage = ref<HTMLImageElement | null>(null)
 const overlayUnitScale = ref(1)
-const colors = ['#2196f3', '#4caf50', '#ff9800', '#e91e63', '#9c27b0', '#00acc1']
 let imageResizeObserver: ResizeObserver | null = null
 
 const imageInfo = computed(() => {
@@ -136,12 +136,9 @@ const categoryNames = computed(() => {
 const getCategoryName = (categoryId: number) =>
   categoryNames.value.get(categoryId) ?? `类别 ${categoryId}`
 
-const getAnnotationColor = (categoryId: number) => {
-  const color = colors[Math.abs(categoryId) % colors.length] ?? '#2196f3'
-  return color
-}
+const getAnnotationColor = (_categoryId: number) => ANNOTATION_COLOR
 
-const getAnnotationFill = (categoryId: number) => `${getAnnotationColor(categoryId)}40`
+const getAnnotationFill = (_categoryId: number) => `${ANNOTATION_COLOR}40`
 
 const updateOverlayUnitScale = () => {
   const image = previewImage.value

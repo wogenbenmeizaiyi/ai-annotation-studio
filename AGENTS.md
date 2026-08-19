@@ -43,6 +43,12 @@ Read and follow the nearest nested `AGENTS.md` before changing a subproject (web
 
 Run `scripts/check.ps1` when changes cross project boundaries. For a single project, follow the project-local checklist in its `AGENTS.md`.
 
+## PR & commit conventions
+
+- Branch from `main`; never push to it directly
+- Commit messages follow Conventional Commits (`feat:` / `fix:` / `docs:` / `refactor:` / `chore:` / `test:`)
+- Open MRs via the GitLab web UI once the pipeline is green (see "Production deployment" below for what triggers a deploy)
+
 ## Production deployment (GitLab CI, no registry)
 
 Triggered by pushing to **`main`** on the internal GitLab (`origin`, `http://172.16.0.110:802`). The pipeline has a single `deploy:server` job running `scripts/deploy-remote.sh`; it SSHes to the production server and builds/runs everything **on the server**. There is no registry, no pushed images.

@@ -28,7 +28,7 @@ import AppSnackbar from '@/components/common/AppSnackbar.vue'
 .annotation-container {
   display: flex;
   height: 100%;
-  background: rgb(var(--v-theme-background));
+  background: var(--bg-app);
   gap: 10px;
   padding: 10px;
 }
@@ -38,9 +38,9 @@ import AppSnackbar from '@/components/common/AppSnackbar.vue'
   display: flex;
   flex-direction: column;
   padding: 12px;
-  background: rgb(var(--v-theme-surface));
-  border: 1px solid var(--studio-hairline);
-  border-radius: 10px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 0;
 }
 
 .toolbar {
@@ -51,15 +51,15 @@ import AppSnackbar from '@/components/common/AppSnackbar.vue'
   flex-wrap: wrap;
   margin-bottom: 10px;
   padding-bottom: 10px;
-  border-bottom: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-bottom: 1px solid var(--border);
 }
 
 .canvas-container {
   flex: 1;
   overflow: auto;
-  border: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
-  border-radius: 8px;
-  background: rgb(var(--v-theme-background));
+  border: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--bg-app);
 }
 
 .right-panel {
@@ -68,9 +68,9 @@ import AppSnackbar from '@/components/common/AppSnackbar.vue'
   max-width: 400px;
   display: flex;
   flex-direction: column;
-  background: rgb(var(--v-theme-surface));
-  border: 1px solid var(--studio-hairline);
-  border-radius: 10px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 0;
   overflow: hidden;
 }
 

@@ -1,7 +1,15 @@
 <template>
   <main class="auth-page">
     <section class="auth-card">
-      <div class="auth-brand"><img src="/favicon-48.png" alt="" /> AI Studio</div>
+      <div class="auth-brand">
+        <span class="auth-brand-mark">
+          <svg viewBox="0 0 24 24" width="32" height="32" aria-hidden="true">
+            <rect x="1" y="1" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" />
+            <rect x="12" y="12" width="7" height="7" fill="var(--accent, #cf4a36)" />
+          </svg>
+        </span>
+        <span class="auth-brand-text">AI Studio<small>标注与检测平台</small></span>
+      </div>
       <div>
         <h1>修改密码</h1>
         <p>管理员重置了你的密码。设置新密码后请重新登录。</p>

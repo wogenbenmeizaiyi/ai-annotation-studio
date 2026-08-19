@@ -7,11 +7,9 @@
           :to="getBreadcrumbHref(item)"
           class="breadcrumb-link"
         >
-          <v-icon v-if="getBreadcrumbIcon(item)" :icon="getBreadcrumbIcon(item)" size="small" />
           <span>{{ getBreadcrumbTitle(item) }}</span>
         </v-breadcrumbs-item>
         <v-breadcrumbs-item v-else disabled class="breadcrumb-current">
-          <v-icon v-if="getBreadcrumbIcon(item)" :icon="getBreadcrumbIcon(item)" size="small" />
           <span>{{ getBreadcrumbTitle(item) }}</span>
         </v-breadcrumbs-item>
       </template>
@@ -26,7 +24,6 @@ import { useRoute } from 'vue-router'
 type BreadcrumbNavItem = {
   title: string
   href: string
-  prependIcon?: string
   disabled?: boolean
 }
 
@@ -40,8 +37,6 @@ const isBreadcrumbLink = (item: unknown): boolean => {
 }
 
 const getBreadcrumbHref = (item: unknown): string => toBreadcrumbItem(item).href
-
-const getBreadcrumbIcon = (item: unknown): string | undefined => toBreadcrumbItem(item).prependIcon
 
 const getBreadcrumbTitle = (item: unknown): string => toBreadcrumbItem(item).title
 
@@ -62,30 +57,27 @@ const breadcrumbItems = computed<BreadcrumbNavItem[]>(() => {
   const path = route.path
 
   if (path === '/' || path === '/task') {
-    return [
-      { title: '标注任务', href: path, prependIcon: 'mdi-folder-outline', disabled: true },
-    ]
+    return [{ title: '标注任务', href: path, disabled: true }]
   }
 
   if (path.startsWith('/ai/')) {
-    const currentPage = {
-      '/ai/recognition': { title: '识别任务', icon: 'mdi-clipboard-text-outline' },
-      '/ai/models': { title: '模型库', icon: 'mdi-cube-outline' },
-      '/ai/combinations': { title: '综合检测', icon: 'mdi-vector-combine' },
-    }[path]
+    const currentTitle: Record<string, string> = {
+      '/ai/recognition': '识别任务',
+      '/ai/models': '模型库',
+      '/ai/combinations': '综合检测',
+    }
 
     return [
       {
-        title: currentPage?.title ?? '检测服务管理',
+        title: currentTitle[path] ?? '检测服务管理',
         href: path,
-        prependIcon: currentPage?.icon ?? 'mdi-radar',
         disabled: true,
       },
     ]
   }
 
   if (path === '/model-mraining' || path === '/model-training') {
-    return [{ title: '模型训练', href: '/model-mraining', prependIcon: 'mdi-brain' }]
+    return [{ title: '模型训练', href: '/model-mraining' }]
   }
 
   if (path.startsWith('/task/')) {
@@ -94,38 +86,33 @@ const breadcrumbItems = computed<BreadcrumbNavItem[]>(() => {
 
     if (segments.length === 2) {
       return [
-        { title: '标注任务', href: '/task', prependIcon: 'mdi-folder-outline' },
-        { title: taskName, href: getTaskHref(taskName), prependIcon: 'mdi-file-document-outline' },
+        { title: '标注任务', href: '/task' },
+        { title: taskName, href: getTaskHref(taskName) },
       ]
     }
 
     if (segments.length === 3 && segments[2] === 'train') {
-      return [
-        { title: '标注任务', href: '/task', prependIcon: 'mdi-folder-outline' },
-      ]
+      return [{ title: '标注任务', href: '/task' }]
     }
 
     if (segments.length >= 4) {
       const imageName = decodeURIComponent(segments[2] ?? '')
       const annotationType = segments[3]
       const typeLabel = annotationType === 'segment' ? '分割标注' : '检测标注'
-      const typeIcon = annotationType === 'segment' ? 'mdi-target' : 'mdi-cube-outline'
       const displaySize = imageName.length > 20 ? `${imageName.slice(0, 20)}...` : imageName
 
       return [
-        { title: '标注任务', href: '/task', prependIcon: 'mdi-folder-outline' },
+        { title: '标注任务', href: '/task' },
         {
           title: taskName,
           href: getTaskHref(taskName, annotationType),
-          prependIcon: 'mdi-file-document-outline',
         },
         {
           title: displaySize,
           href: getTaskHref(taskName, annotationType),
-          prependIcon: 'mdi-image-outline',
           disabled: true,
         },
-        { title: typeLabel, href: path, prependIcon: typeIcon, disabled: true },
+        { title: typeLabel, href: path, disabled: true },
       ]
     }
   }
@@ -134,12 +121,12 @@ const breadcrumbItems = computed<BreadcrumbNavItem[]>(() => {
     const segments = path.split('/').filter(Boolean)
     const id = segments[1]
     return [
-      { title: '模型训练', href: '/model-mraining', prependIcon: 'mdi-brain' },
-      { title: `训练任务 #${id}`, href: path, prependIcon: 'mdi-cog-outline' },
+      { title: '模型训练', href: '/model-mraining' },
+      { title: `训练任务 #${id}`, href: path },
     ]
   }
 
-  return [{ title: '首页', href: '/', prependIcon: 'mdi-home-outline' }]
+  return [{ title: '首页', href: '/' }]
 })
 </script>
 
@@ -149,7 +136,7 @@ const breadcrumbItems = computed<BreadcrumbNavItem[]>(() => {
   flex: 1;
   display: flex;
   align-items: center;
-  height: 40px;
+  height: 64px;
   background: transparent;
 }
 
@@ -159,9 +146,9 @@ const breadcrumbItems = computed<BreadcrumbNavItem[]>(() => {
   background: transparent;
   display: flex;
   width: 100%;
-  height: 40px;
-  min-height: 40px;
-  padding: 0 16px;
+  height: 64px;
+  min-height: 64px;
+  padding: 0;
   line-height: normal;
 }
 
@@ -178,7 +165,6 @@ const breadcrumbItems = computed<BreadcrumbNavItem[]>(() => {
 .breadcrumb-current {
   align-items: center;
   color: inherit;
-  gap: 4px;
   height: 100%;
   line-height: normal;
   text-decoration: none;
@@ -187,21 +173,19 @@ const breadcrumbItems = computed<BreadcrumbNavItem[]>(() => {
 
 .breadcrumb-link {
   cursor: pointer;
+  color: var(--text-muted);
 }
 
 .breadcrumb-link:hover {
-  color: rgb(var(--v-theme-primary));
+  color: var(--accent);
 }
 
 .breadcrumb-current {
-  color: var(--studio-ink-subtle);
+  color: var(--ink);
+  font-weight: 500;
 }
 
 @media (max-width: 640px) {
-  .breadcrumb-nav {
-    padding-inline: 8px;
-  }
-
   .breadcrumb-nav :deep(.v-breadcrumbs-item:nth-of-type(n + 4)),
   .breadcrumb-nav :deep(.v-breadcrumbs-divider:nth-of-type(n + 4)) {
     display: none;

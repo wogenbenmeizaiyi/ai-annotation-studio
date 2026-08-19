@@ -206,6 +206,7 @@ import { getAnnotation, getImage, getImageList, getTask, updateAnnotation } from
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import { useSnackbar } from '@/composables/useSnackbar'
 import { createWebSocketUrl } from '@/config/env'
+import { annotationColorForId } from '@/config/annotation-palette'
 
 const confirmDialog = useConfirmDialog()
 const snackbar = useSnackbar()
@@ -320,14 +321,7 @@ const getTaskDimensionType = async () => {
 }
 
 function getColorById(id: number): string {
-  const COLOR_MAP: Record<number, string> = {
-    1: '#ff4d4f',
-    2: '#faad14',
-    3: '#52c41a',
-    4: '#1890ff',
-  }
-  const DEFAULT_COLORS = ['#722ed1', '#eb2f96', '#13c2c2']
-  return COLOR_MAP[id] ?? DEFAULT_COLORS[id % DEFAULT_COLORS.length]!
+  return annotationColorForId(id)
 }
 
 const getCurrentTypeLabel = (): string => {

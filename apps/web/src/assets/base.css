@@ -1,4 +1,4 @@
-/* Vuetify provides component styles, but the app still needs a viewport reset. */
+/* 基础 reset; Vuetify 提供组件样式, 这里只补 viewport / color-scheme */
 html,
 body,
 #app {
@@ -8,6 +8,17 @@ body,
 
 body {
   overflow: hidden;
-  color-scheme: dark;
-  background: #010102;
+  color-scheme: light;
+  background: var(--paper, #f5f0e6);
+  color: var(--ink, #4a4036);
+}
+
+a {
+  color: var(--red, #cf4a36);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.18s;
+}
+a:hover {
+  border-bottom-color: var(--red, #cf4a36);
 }

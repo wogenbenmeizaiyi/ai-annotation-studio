@@ -1,59 +1,127 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Noto+Serif+SC:wght@500;600&family=JetBrains+Mono:wght@400;500&display=swap');
 @import './base.css';
 
+/* ============================================================
+   Paper + Ink + Cinnabar (PassingTrace 主站设计语言)
+   套用到 AI Studio 项目的设计 token 源头
+   ============================================================ */
+
 :root {
-  --app-zoom: 1;
-  --studio-canvas: #010102;
-  --studio-surface-1: #0f1011;
-  --studio-surface-2: #141516;
-  --studio-surface-3: #18191a;
-  --studio-surface-4: #191a1b;
-  --studio-hairline: #23252a;
-  --studio-hairline-strong: #34343a;
-  --studio-ink: #f7f8f8;
-  --studio-ink-muted: #d0d6e0;
-  --studio-ink-subtle: #8a8f98;
-  --studio-ink-tertiary: #62666d;
-  --studio-primary: #5e6ad2;
-  --studio-primary-hover: #828fff;
-  --studio-focus-ring: rgba(94, 106, 210, 0.5);
+  color-scheme: light;
+
+  /* --- 核心色 (来自设计系统, 不可改) --- */
+  --ink: #4a4036;            /* 浓墨 — 标题/正文/深色按钮 (偏暖淡墨, 不死黑) */
+  --paper: #f5f0e6;          /* 米黄纸 — 背景 */
+  --red: #cf4a36;            /* 朱砂 — 强调/eyebrow/主按钮 */
+  --sage: #5e6b55;           /* 鼠尾草绿 — 深, 次级/active 卡 */
+  --sage-dot: #7f9d6c;       /* 鼠尾草绿 — 浅, live-dot */
+  --sand: #ebe5d9;           /* 沙色 — 硬阴影/section 背景 */
+  --line: rgba(74, 64, 54, 0.17);    /* 1px 描边 */
+
+  /* --- 文字透明度叠加 (来自设计系统) --- */
+  --ink-66: rgba(74, 64, 54, 0.66);  /* 副文 */
+  --ink-50: rgba(74, 64, 54, 0.5);   /* 弱文 */
+  --ink-62: rgba(74, 64, 54, 0.62);  /* 标签 */
+
+  /* --- 语义别名 (业务侧使用) --- */
+  --text-strong: var(--ink);
+  --text: var(--ink);
+  --text-muted: var(--ink-66);
+  --text-subtle: var(--ink-50);
+  --text-label: var(--ink-62);
+  --text-on-red: #ffffff;
+  --text-on-ink: var(--paper);
+
+  --bg-app: var(--paper);
+  --bg-elevated: var(--paper);   /* 跟 app 同色, 用 sand 阴影区分 */
+  --bg-sunken: var(--sand);
+  --bg-deep: #14110b;            /* 极少用: 深色 hero / 暗调 */
+  --bg-card-hover: #efe9dc;      /* paper 跟 sand 之间, hover 微亮 */
+
+  --border: var(--line);
+  --border-strong: var(--ink);
+
+  --accent: var(--red);
+  --accent-hover: #b03e2c;       /* 朱砂深一档 */
+  --accent-active: #962f1f;      /* 朱砂再深一档 */
+  --accent-soft: rgba(207, 74, 54, 0.16);  /* focus ring */
+
+  --status-live: var(--sage-dot);
+  --status-success: var(--sage);
+  --status-success-bg: rgba(127, 157, 108, 0.18);
+  --status-error: #7b2519;
+  --status-error-bg: #f4d9d2;
+  --status-warning: #b08a3a;
+  --status-warning-bg: rgba(176, 138, 58, 0.18);
+  --status-info: var(--ink-66);
+  --status-info-bg: rgba(74, 64, 54, 0.08);
+
+  /* --- 硬阴影 (无 blur) --- */
+  --shadow-card: 18px 18px 0 var(--sand);
+  --shadow-card-sm: 12px 12px 0 var(--sand);
+  --shadow-card-xs: 6px 6px 0 var(--sand);
+  --shadow-button-hover: 0 9px 20px rgba(74, 64, 54, 0.12);
+  --shadow-dialog: 0 24px 72px rgba(74, 64, 54, 0.16);
+
+  /* --- 字体 --- */
+  --font-ui: 'DM Sans', system-ui, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+  --font-serif: 'Noto Serif SC', Georgia, serif;
+  --font-italic: Georgia, serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Consolas, monospace;
+
+  /* --- 间距 --- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 22px;
+  --space-6: 28px;
+  --space-7: 38px;
+  --space-8: 56px;
+
+  /* --- 圆角: 几乎全部直角; 仅小元素接受 2px --- */
+  --radius-0: 0;
+  --radius-xs: 2px;
+
+  /* --- 旧 token 别名 (保持业务代码不需重命名即可切换主题) --- */
+  --studio-canvas: var(--paper);
+  --studio-surface-1: var(--paper);
+  --studio-surface-2: var(--sand);
+  --studio-surface-3: var(--sand);
+  --studio-surface-4: var(--sand);
+  --studio-hairline: var(--line);
+  --studio-hairline-strong: rgba(74, 64, 54, 0.32);
+  --studio-ink: var(--ink);
+  --studio-ink-muted: var(--ink-66);
+  --studio-ink-subtle: var(--ink-50);
+  --studio-ink-tertiary: var(--ink-50);
+  --studio-primary: var(--red);
+  --studio-primary-hover: var(--accent-hover);
+  --studio-focus-ring: var(--accent-soft);
+  --studio-border: var(--line);
 }
 
-/*
- * The operational screens are designed around 1920 x 1080.  Vuetify keeps
- * many control heights in px, so increasing only the root font size leaves
- * buttons and fields looking undersized on 2K/4K displays.  Scale the app as
- * one layout at larger viewport sizes and keep 1080p unchanged.
- */
+/* ============================================================
+   响应式缩放 (保留旧逻辑, 适配 2K/4K 大屏)
+   ============================================================ */
 @media (min-width: 2200px) and (min-height: 1200px) {
-  :root {
-    --app-zoom: 1.12;
-  }
+  :root { --app-zoom: 1.12; }
 }
-
 @media (min-width: 2800px) and (min-height: 1560px) {
-  :root {
-    --app-zoom: 1.24;
-  }
+  :root { --app-zoom: 1.24; }
 }
-
 @media (min-width: 3600px) and (min-height: 2000px) {
-  :root {
-    --app-zoom: 1.36;
-  }
+  :root { --app-zoom: 1.36; }
 }
 
+/* ============================================================
+   App 根
+   ============================================================ */
 #app {
   min-height: 100vh;
-  color: var(--studio-ink);
-  background: var(--studio-canvas);
-  font-family:
-    Inter,
-    ui-sans-serif,
-    -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
-    'Microsoft YaHei',
-    sans-serif;
+  color: var(--text);
+  background: var(--bg-app);
+  font-family: var(--font-ui);
   font-size: 14px;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
@@ -61,38 +129,37 @@
 
 * {
   box-sizing: border-box;
-  scrollbar-color: var(--studio-hairline-strong) transparent;
+  scrollbar-color: var(--sand) transparent;
   scrollbar-width: thin;
 }
 
-*::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
+*::-webkit-scrollbar { width: 8px; height: 8px; }
 *::-webkit-scrollbar-thumb {
-  background: var(--studio-hairline-strong);
+  background: var(--sand);
   border: 2px solid transparent;
-  border-radius: 8px;
   background-clip: padding-box;
 }
-
 *::-webkit-scrollbar-thumb:hover {
-  background: var(--studio-ink-tertiary);
+  background: var(--ink-50);
   background-clip: padding-box;
 }
 
 ::selection {
   color: #fff;
-  background: rgba(94, 106, 210, 0.55);
+  background: rgba(207, 74, 54, 0.55);
 }
 
 :focus-visible {
-  outline: 2px solid var(--studio-focus-ring);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
-/* Vuetify fields already render their own rounded focus state. */
+/* ============================================================
+   Vuetify 主题适配 — 把所有 v-* 组件视觉压到 paper-ink-cinnabar
+   直角 + 沙色硬阴影 (无 blur) + 朱砂强调 + 米色背景
+   ============================================================ */
+
+/* Vuetify 自带 focus, 我们用 accent 接管 */
 #app .v-field input:focus-visible,
 #app .v-field textarea:focus-visible,
 #app .v-field [contenteditable='true']:focus-visible,
@@ -102,270 +169,463 @@
   outline: none;
 }
 
+/* MDI 残留图标 (prepend/append-icon 等尚未替换的位置) — 默认墨色 */
+#app .v-icon,
+#app .v-btn .v-icon,
+#app .v-list-item .v-icon,
+#app .v-tab .v-icon {
+  color: inherit;
+  opacity: 1;
+}
+#app .v-btn[color='primary'] .v-icon,
+#app .v-btn--variant-elevated .v-icon,
+#app .v-btn--variant-flat .v-icon {
+  color: var(--text-on-red);
+}
+/* 错误色按钮里的图标保留 error 颜色 */
+#app .v-btn[color='error'] .v-icon {
+  color: var(--status-error);
+}
+
+/* Card — 核心容器, 硬阴影, 直角 */
 #app .v-card {
-  background: var(--studio-surface-1);
-  border: 1px solid var(--studio-hairline);
+  background: var(--bg-elevated) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 0 !important;
+  box-shadow: var(--shadow-card) !important;
+  color: var(--text) !important;
+}
+#app .v-card:hover {
+  border-color: var(--border-strong) !important;
+  box-shadow: var(--shadow-card) !important;
+}
+#app .v-card--variant-elevated,
+#app .v-card--variant-flat {
+  background: var(--bg-elevated) !important;
+}
+
+/* Button — 直角, hover 上移 2px, 主操作朱砂 */
+#app .v-btn {
+  border-radius: 0 !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  box-shadow: none !important;
+  min-height: 38px;
+  transition: transform 0.18s, box-shadow 0.18s, background-color 0.18s, color 0.18s;
+}
+#app .v-btn--size-default { min-height: 38px; }
+#app .v-btn--size-large { min-height: 48px; padding: 0 22px; }
+#app .v-btn--size-small { min-height: 32px; padding: 0 14px; }
+#app .v-btn--size-x-small { min-height: 26px; padding: 0 10px; font-size: 12px; }
+
+#app .v-btn--variant-elevated,
+#app .v-btn--variant-flat {
+  background: var(--accent) !important;
+  color: var(--text-on-red) !important;
+}
+#app .v-btn--variant-elevated:hover,
+#app .v-btn--variant-flat:hover {
+  background: var(--accent-hover) !important;
+  color: var(--text-on-red) !important;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-button-hover) !important;
+}
+#app .v-btn--variant-elevated:active,
+#app .v-btn--variant-flat:active {
+  background: var(--accent-active) !important;
+  transform: translateY(0);
   box-shadow: none !important;
 }
-
-#app .v-card:hover {
-  border-color: var(--studio-hairline-strong);
-}
-
-#app .v-btn {
-  text-transform: none;
-  letter-spacing: 0;
-  font-size: 13px;
-  font-weight: 500;
-}
-
 #app .v-btn--variant-outlined {
-  border-color: var(--studio-hairline-strong);
+  background: transparent !important;
+  color: var(--text-muted) !important;
+  border: 1px solid var(--border) !important;
+}
+#app .v-btn--variant-outlined .v-icon,
+#app .v-btn--variant-outlined .mdi-icon,
+#app .v-btn--variant-outlined i {
+  color: var(--text-muted) !important;
+  opacity: 1 !important;
+}
+#app .v-btn--variant-outlined:hover {
+  background: var(--bg-sunken) !important;
+  color: var(--text) !important;
+  border-color: var(--border-strong) !important;
+  transform: translateY(-1px);
+}
+#app .v-btn--variant-outlined:hover .v-icon,
+#app .v-btn--variant-outlined:hover .mdi-icon,
+#app .v-btn--variant-outlined:hover i {
+  color: var(--text) !important;
+  opacity: 1 !important;
+}
+#app .v-btn--variant-tonal {
+  background: var(--bg-sunken) !important;
+  background-color: var(--bg-sunken) !important;
+  color: var(--text) !important;
+}
+#app .v-btn--variant-tonal:hover {
+  background: var(--sand) !important;
+  background-color: var(--sand) !important;
+  transform: translateY(-1px);
+}
+#app .v-btn--variant-tonal[color='primary'] {
+  background: var(--accent-soft) !important;
+  background-color: var(--accent-soft) !important;
+  color: var(--accent) !important;
+}
+#app .v-btn--variant-text {
+  color: var(--text-muted) !important;
+  background: transparent !important;
+  background-color: transparent !important;
+}
+#app .v-btn--variant-text:hover {
+  background: var(--bg-sunken) !important;
+  background-color: var(--bg-sunken) !important;
+  color: var(--text) !important;
+}
+/* primary 色按钮的文字变体 — 朱砂色文字 + 透明底 */
+#app .v-btn--variant-text[color='primary'],
+#app .v-btn--variant-text.v-btn--color-primary {
+  color: var(--accent) !important;
+  background: transparent !important;
+  background-color: transparent !important;
+}
+#app .v-btn--variant-text[color='primary']:hover,
+#app .v-btn--variant-text.v-btn--color-primary:hover {
+  background: var(--accent-soft) !important;
+  background-color: var(--accent-soft) !important;
+}
+#app .v-btn--icon {
+  min-width: 38px;
+  padding: 0 !important;
 }
 
-#app .v-btn--variant-text:not(.text-error) {
-  color: var(--studio-ink-muted);
+/* Field (text/select/autocomplete) — 直角输入, accent focus
+ * 关键: v-field 是嵌套结构, 必须给每一层都打背景, 否则 Vuetify 4 的内层默认
+ * 白色会盖掉外层覆盖. 这一节用高优先级 + 多个内层选择器.
+ */
+#app .v-field,
+#app .v-field__field,
+#app .v-field__overlay,
+#app .v-field__loader,
+#app .v-field--variant-filled .v-field__field,
+#app .v-field--variant-solo .v-field__field,
+#app .v-field--variant-solo-filled .v-field__field,
+#app .v-field--variant-underlined .v-field__field {
+  background: var(--bg-elevated) !important;
+  background-color: var(--bg-elevated) !important;
+  border-radius: 0 !important;
 }
 
-#app .v-field {
-  background: var(--studio-surface-1);
-  border-radius: 8px;
+/* 所有 variant 都强制直角, 包括内层 */
+#app .v-field,
+#app .v-field--variant-outlined,
+#app .v-field--variant-filled,
+#app .v-field--variant-solo,
+#app .v-field--variant-solo-filled,
+#app .v-field--variant-underlined,
+#app .v-field__field,
+#app .v-field__overlay {
+  border-radius: 0 !important;
 }
 
-#app .v-field__outline {
+/* outlined 变体: 描边色 = 17% line (跟其他组件同款"淡描边", 不突兀) */
+#app .v-field--variant-outlined .v-field__outline {
   --v-field-border-opacity: 1;
-  color: var(--studio-hairline-strong);
+  color: var(--border) !important;
 }
-
+#app .v-field:hover:not(.v-field--focused) .v-field__outline {
+  color: rgba(74, 64, 54, 0.32) !important;
+}
 #app .v-field--focused .v-field__outline {
-  color: var(--studio-primary);
-}
-
-#app .v-table {
-  color: var(--studio-ink-muted);
-  background: var(--studio-surface-1);
-}
-
-#app .v-table thead th {
-  color: var(--studio-ink-subtle);
-  background: var(--studio-surface-2);
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 0.1px;
-}
-
-#app .v-table tbody tr:not(:last-child) > td {
-  border-bottom-color: var(--studio-hairline);
-}
-
-#app .v-table tbody tr:hover > td {
-  background: rgba(255, 255, 255, 0.025);
-}
-
-.v-dialog > .v-overlay__content > .v-card {
-  background: var(--studio-surface-1);
-  border: 1px solid var(--studio-hairline-strong);
-}
-
-.studio-dialog-card {
-  max-height: calc(100vh - 48px);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  background: var(--studio-surface-1);
-  border: 1px solid var(--studio-hairline-strong) !important;
-  border-radius: 12px !important;
-  box-shadow: 0 24px 72px rgba(0, 0, 0, 0.46) !important;
-}
-
-.studio-dialog-card:hover {
-  border-color: var(--studio-hairline-strong) !important;
-}
-
-.studio-dialog-header {
-  min-height: 76px;
-  display: flex !important;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-  padding: 16px 20px !important;
-  background: var(--studio-surface-1);
-  border-bottom: 1px solid var(--studio-hairline);
-  white-space: normal !important;
-}
-
-.studio-dialog-heading {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.studio-dialog-title {
-  overflow: hidden;
-  color: var(--studio-ink);
-  font-size: 18px;
-  font-weight: 600;
-  line-height: 1.35;
-  letter-spacing: -0.25px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.studio-dialog-subtitle {
-  margin: 4px 0 0;
-  overflow: hidden;
-  color: var(--studio-ink-subtle);
-  font-size: 12px;
-  font-weight: 400;
-  line-height: 1.4;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.studio-dialog-context {
-  display: inline-flex;
-  max-width: 100%;
-  padding: 2px 6px;
-  color: var(--studio-ink-tertiary);
-  background: var(--studio-surface-2);
-  border-radius: 4px;
-  font-family: ui-monospace, 'SFMono-Regular', Consolas, monospace;
-  font-size: 11px;
-}
-
-.studio-dialog-close {
-  flex: 0 0 auto;
-  color: var(--studio-ink-subtle);
-}
-
-.studio-dialog-body {
-  min-height: 0;
-  padding: 20px !important;
-  overflow-y: auto;
-  color: var(--studio-ink-muted);
-  background: #0a0b0c;
-}
-
-.studio-dialog-section {
-  display: grid;
-  gap: 18px;
-  padding: 18px;
-  background: var(--studio-surface-2);
-  border: 1px solid var(--studio-hairline);
-  border-radius: 10px;
-}
-
-.studio-dialog-section + .studio-dialog-section {
-  margin-top: 16px;
-}
-
-.studio-dialog-section--secondary {
-  background: var(--studio-surface-3);
-}
-
-.studio-dialog-section-heading {
-  display: grid;
-  gap: 4px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--studio-hairline);
-}
-
-.studio-dialog-section-title {
-  color: var(--studio-ink);
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.studio-dialog-section-copy {
-  color: var(--studio-ink-subtle);
-  font-size: 12px;
-  line-height: 1.45;
-}
-
-.studio-form-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px 14px;
-}
-
-.studio-form-grid > .is-full-width {
-  grid-column: 1 / -1;
-}
-
-.studio-dialog-card .v-input {
-  min-width: 0;
-}
-
-.studio-dialog-card .v-field {
-  background: var(--studio-surface-1);
-  border-radius: 8px;
-}
-
-.studio-dialog-card .v-field__outline {
+  color: var(--accent) !important;
   --v-field-border-opacity: 1;
-  color: var(--studio-hairline-strong);
+}
+#app .v-field--focused {
+  box-shadow: 0 0 0 3px var(--accent-soft) !important;
 }
 
-.studio-dialog-card .v-field--focused .v-field__outline {
-  color: var(--studio-primary);
+/* v-field 内部 loader/overlay 的可见性 — 别叠出第二条边 */
+#app .v-field__loader,
+#app .v-field__loader-progress {
+  border-color: var(--accent) !important;
+  opacity: 0.4;
 }
 
-.studio-dialog-actions {
-  min-height: 62px;
-  padding: 11px 18px !important;
-  background: var(--studio-surface-1);
-  border-top: 1px solid var(--studio-hairline);
+/* 输入文字颜色 */
+#app .v-field__input,
+#app .v-field__input input,
+#app .v-field__input textarea,
+#app .v-field__input select {
+  color: var(--text) !important;
+  caret-color: var(--accent) !important;
+}
+#app .v-field__input input::placeholder,
+#app .v-field__input textarea::placeholder {
+  color: var(--text-subtle) !important;
+  opacity: 1 !important;
 }
 
-.studio-dialog-actions .v-btn {
-  min-width: 82px;
-  text-transform: none;
-  letter-spacing: 0;
+/* field 内嵌的图标 (date-picker 图标, prepend/append, clear 按钮) — 强制用淡墨, 不再被 v-theme 黑化 */
+#app .v-field__prepend-inner > .v-icon,
+#app .v-field__append-inner > .v-icon,
+#app .v-field__clearable > .v-icon,
+#app .v-field .v-icon {
+  color: var(--text-muted) !important;
+  opacity: 1 !important;
+}
+#app .v-field--focused .v-icon {
+  color: var(--accent) !important;
+  opacity: 1 !important;
 }
 
-#app .v-card-title {
-  color: var(--studio-ink);
-  font-size: 16px;
-  font-weight: 600;
-  letter-spacing: -0.2px;
+/* label — Vuetify 4 class 是 .v-label.v-field-label (没有下划线, 那是 v3 写法)
+   浮起状态再加 .v-field-label--floating 修饰类
+   注意: v-dialog 默认 teleport 到 body, 所以选择器要兼容 #app 外面的 v-overlay-container
+   字体颜色用满墨色 (--ink), 不要半透明, 让 label 在任何背景下都看得清 */
+.v-label.v-field-label,
+.v-field--variant-outlined .v-label.v-field-label,
+.v-field--variant-filled .v-label.v-field-label {
+  color: var(--ink) !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  opacity: 1 !important;
 }
 
-.v-overlay__scrim {
-  background: #000;
-  opacity: 0.72;
+/* filled 变体的特殊处理: 移除默认的"线" */
+#app .v-field--variant-filled .v-field__overlay {
+  opacity: 0 !important;
 }
 
+/* v-input 容器 — 去掉外层 padding 让 field 撑满 */
+#app .v-input {
+  color: var(--text) !important;
+}
+#app .v-input--error .v-field__outline {
+  color: var(--status-error) !important;
+}
+#app .v-messages__message {
+  color: var(--text-muted) !important;
+  font-size: 12px !important;
+}
+
+/* Table — 沙色表头, 细线分隔 */
+#app .v-table {
+  background: var(--bg-elevated) !important;
+  color: var(--text-muted) !important;
+  border-radius: 0 !important;
+}
+#app .v-table thead th {
+  color: var(--text-label) !important;
+  background: var(--bg-sunken) !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.1em !important;
+  text-transform: uppercase !important;
+  border-bottom: 1px solid var(--border) !important;
+  height: 38px;
+}
+#app .v-table tbody tr:not(:last-child) > td {
+  border-bottom: 1px solid var(--border) !important;
+}
+#app .v-table tbody tr:hover > td {
+  background: var(--bg-card-hover) !important;
+}
+
+/* Chip — 直角小标签, 沙底色 */
 #app .v-chip {
-  font-weight: 500;
+  border-radius: 0 !important;
+  font-weight: 500 !important;
+  font-size: 12px !important;
+  height: 22px !important;
+  padding: 0 8px !important;
+  background: var(--bg-sunken) !important;
+  color: var(--text) !important;
+}
+#app .v-chip--variant-elevated {
+  background: var(--bg-sunken) !important;
+  color: var(--text) !important;
 }
 
+/* Dialog */
+.v-dialog > .v-overlay__content > .v-card {
+  background: var(--bg-elevated) !important;
+  border: 1px solid var(--border-strong) !important;
+  border-radius: 0 !important;
+  box-shadow: var(--shadow-dialog) !important;
+}
+
+/* List */
+#app .v-list {
+  background: var(--bg-elevated) !important;
+  color: var(--text) !important;
+  border-radius: 0 !important;
+}
+#app .v-list-item--active {
+  background: var(--bg-sunken) !important;
+  color: var(--text) !important;
+}
+#app .v-list-item--active::before {
+  background: var(--accent) !important;
+  opacity: 1 !important;
+}
+
+/* Menu / Overlay */
+.v-overlay__scrim {
+  background: var(--ink) !important;
+  opacity: 0.4 !important;
+}
+.v-overlay__content .v-card,
+.v-menu .v-list {
+  border: 1px solid var(--border-strong) !important;
+  box-shadow: var(--shadow-dialog) !important;
+}
+
+/* Alert / Banner */
+#app .v-alert {
+  border-radius: 0 !important;
+  border: 1px solid var(--border) !important;
+  font-size: 13px;
+}
+#app .v-alert--type-error {
+  background: var(--status-error-bg) !important;
+  color: var(--status-error) !important;
+  border-color: var(--status-error) !important;
+}
+#app .v-alert--type-success {
+  background: var(--status-success-bg) !important;
+  color: var(--status-success) !important;
+  border-color: var(--status-success) !important;
+}
+#app .v-alert--type-warning {
+  background: var(--status-warning-bg) !important;
+  color: var(--status-warning) !important;
+  border-color: var(--status-warning) !important;
+}
+#app .v-alert--type-info {
+  background: var(--status-info-bg) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+
+/* Expansion panels */
+#app .v-expansion-panel {
+  background: var(--bg-elevated) !important;
+  border-radius: 0 !important;
+  border: 1px solid var(--border) !important;
+}
+#app .v-expansion-panel-title {
+  font-weight: 500 !important;
+  color: var(--text) !important;
+}
+
+/* Tabs */
+#app .v-tab {
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  font-weight: 500 !important;
+  color: var(--text-muted) !important;
+  min-height: 44px !important;
+}
+#app .v-tab--selected {
+  color: var(--text) !important;
+}
+#app .v-tab--selected .v-tab__slider {
+  background: var(--accent) !important;
+  height: 2px !important;
+}
+
+/* Progress */
+#app .v-progress-linear__background {
+  background: var(--bg-sunken) !important;
+  opacity: 1 !important;
+}
+#app .v-progress-linear__determinate {
+  background: var(--accent) !important;
+}
+
+/* Divider */
+#app .v-divider {
+  border-color: var(--border) !important;
+  opacity: 1 !important;
+}
+
+/* Switch / Checkbox / Radio — 直角控制, accent 色 */
+#app .v-switch__track {
+  border-radius: 0 !important;
+  background: var(--bg-sunken) !important;
+  opacity: 1 !important;
+  border: 1px solid var(--border-strong) !important;
+}
+#app .v-switch--inset .v-switch__track {
+  border-radius: 0 !important;
+}
+#app .v-switch__thumb {
+  background: var(--ink) !important;
+}
+#app .v-switch--indeterminate .v-switch__thumb,
+#app .v-input--switch .v-switch--active .v-switch__track {
+  background: var(--accent) !important;
+  border-color: var(--accent) !important;
+}
+#app .v-input--switch .v-switch--active .v-switch__thumb {
+  background: var(--paper) !important;
+}
+
+/* 关闭 / 图标按钮 — 强制可见, 避免在新背景下变透明 */
+#app .v-btn--icon,
+#app .v-btn--icon.v-btn--variant-text {
+  color: var(--text-muted) !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  border: 0 !important;
+}
+#app .v-btn--icon:hover,
+#app .v-btn--icon.v-btn--variant-text:hover {
+  color: var(--ink) !important;
+  background: var(--bg-sunken) !important;
+  background-color: var(--bg-sunken) !important;
+}
+#app .v-btn--icon .v-icon,
+#app .v-btn--icon.v-btn--variant-text .v-icon {
+  color: inherit !important;
+  opacity: 1 !important;
+}
+
+/* ============================================================
+   通用 Page Header (来自 PageHeader.vue 的 .studio-page-header)
+   现在直接由 token 控制
+   ============================================================ */
 .studio-page-header {
   min-height: 52px;
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
   gap: 20px;
+  padding: 0 0 18px 0;
+  border-bottom: 1px solid var(--border);
 }
-
-.studio-page-heading {
-  min-width: 0;
-}
-
+.studio-page-heading { min-width: 0; }
 .studio-page-heading h1 {
   margin: 0;
-  color: var(--studio-ink);
-  font-size: 22px;
-  font-weight: 600;
+  color: var(--text);
+  font-family: var(--font-serif);
+  font-size: 28px;
+  font-weight: 500;
   line-height: 1.2;
-  letter-spacing: -0.45px;
+  letter-spacing: -0.04em;
 }
-
 .studio-page-heading p {
   margin: 6px 0 0;
-  color: var(--studio-ink-subtle);
-  font-size: 13px;
-  line-height: 1.45;
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1.5;
 }
-
 .studio-page-actions {
   display: flex;
   align-items: center;
@@ -374,40 +634,174 @@
   gap: 8px;
 }
 
+/* ============================================================
+   通用 Dialog 样式 (AppConfirmDialog / TrainingAnalysisDialog 等)
+   ============================================================ */
+.studio-dialog-card {
+  max-height: calc(100vh - 48px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg-elevated) !important;
+  border: 1px solid var(--border-strong) !important;
+  border-radius: 0 !important;
+  box-shadow: var(--shadow-dialog) !important;
+}
+.studio-dialog-card:hover {
+  border-color: var(--border-strong) !important;
+}
+.studio-dialog-header {
+  min-height: 76px;
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 16px 20px !important;
+  background: var(--bg-elevated) !important;
+  border-bottom: 1px solid var(--border) !important;
+  white-space: normal !important;
+}
+.studio-dialog-heading {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.studio-dialog-title {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -0.25px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.studio-dialog-subtitle {
+  margin: 4px 0 0;
+  overflow: hidden;
+  color: var(--text-subtle);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.studio-dialog-context {
+  display: inline-flex;
+  max-width: 100%;
+  padding: 2px 6px;
+  color: var(--text-subtle);
+  background: var(--bg-sunken);
+  border: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.studio-dialog-close {
+  flex: 0 0 auto;
+  color: var(--text-subtle);
+}
+.studio-dialog-body {
+  min-height: 0;
+  padding: 20px !important;
+  overflow-y: auto;
+  color: var(--text-muted);
+  background: var(--bg-app);
+}
+.studio-dialog-section {
+  display: grid;
+  gap: 18px;
+  padding: 18px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 0;
+}
+.studio-dialog-section + .studio-dialog-section {
+  margin-top: 16px;
+}
+.studio-dialog-section--secondary {
+  background: var(--bg-sunken);
+}
+.studio-dialog-section-heading {
+  display: grid;
+  gap: 4px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.studio-dialog-section-title {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+}
+.studio-dialog-section-copy {
+  color: var(--text-subtle);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.studio-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px 14px;
+}
+.studio-form-grid > .is-full-width {
+  grid-column: 1 / -1;
+}
+.studio-dialog-card .v-input {
+  min-width: 0;
+}
+.studio-dialog-card .v-field {
+  background: var(--bg-elevated) !important;
+  border-radius: 0 !important;
+}
+.studio-dialog-card .v-field__outline {
+  --v-field-border-opacity: 1;
+  color: var(--border) !important;
+}
+.studio-dialog-card .v-field--focused .v-field__outline {
+  color: var(--accent) !important;
+}
+.studio-dialog-actions {
+  min-height: 62px;
+  padding: 11px 18px !important;
+  background: var(--bg-elevated) !important;
+  border-top: 1px solid var(--border) !important;
+}
+.studio-dialog-actions .v-btn {
+  min-width: 82px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* ============================================================
+   AI / 工具类页面
+   ============================================================ */
 .annotation-active {
-  background: rgba(94, 106, 210, 0.14) !important;
+  background: var(--accent-soft) !important;
 }
 
-/* Detection-service pages share one compact operational layout. */
 #app .ai-page {
-  background: var(--studio-canvas);
+  background: var(--bg-app);
 }
-
 #app .ai-page .ai-page-content {
   padding: 18px 20px 20px;
   gap: 12px;
 }
-
 #app .ai-page .page-toolbar {
   align-items: stretch;
   flex-direction: column;
   gap: 12px;
 }
-
 #app .ai-page .toolbar-title h2 {
-  color: var(--studio-ink);
-  font-size: 20px;
-  font-weight: 600;
-  letter-spacing: -0.35px;
+  color: var(--text);
+  font-size: 22px;
+  font-weight: 500;
+  font-family: var(--font-serif);
+  letter-spacing: -0.04em;
 }
-
 #app .ai-page .toolbar-title span {
   display: block;
   margin-top: 4px;
-  color: var(--studio-ink-subtle);
+  color: var(--text-subtle);
   font-size: 12px;
 }
-
 #app .ai-page .toolbar-actions {
   width: 100%;
   min-height: 50px;
@@ -417,96 +811,80 @@
   justify-content: flex-start;
   gap: 8px;
   padding: 8px;
-  background: var(--studio-surface-1);
-  border: 1px solid var(--studio-hairline);
-  border-radius: 10px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 0;
 }
-
 #app .ai-page .toolbar-actions .v-input {
   flex: 0 1 168px;
 }
-
 #app .ai-page .toolbar-actions .v-btn:last-child {
   margin-left: auto;
 }
-
 #app .ai-page .table-panel {
-  background: var(--studio-surface-1);
-  border: 1px solid var(--studio-hairline);
-  border-radius: 10px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 0;
 }
-
 #app .ai-page .ai-table tbody td {
   height: 50px;
-  color: var(--studio-ink-muted);
+  color: var(--text-muted);
   font-size: 13px;
 }
-
 #app .ai-page .pagination-bar {
   min-height: 44px;
   display: grid;
   place-items: center;
   padding: 4px 10px;
-  background: var(--studio-surface-1);
-  border-top: 1px solid var(--studio-hairline);
+  background: var(--bg-elevated);
+  border-top: 1px solid var(--border);
 }
-
 #app .ai-page .model-uuid,
 #app .ai-page .combination-uuid {
   display: inline-flex;
   max-width: 100%;
   padding: 0;
-  color: var(--studio-ink-tertiary);
+  color: var(--text-subtle);
   background: transparent;
   border: 0;
-  border-radius: 0;
-  font-family: ui-monospace, 'SFMono-Regular', Consolas, monospace;
+  font-family: var(--font-mono);
   line-height: 1.35;
 }
-
 #app .ai-page .task-id {
   display: inline-flex;
   max-width: 100%;
   padding: 2px 5px;
-  color: var(--studio-ink-subtle);
-  background: var(--studio-surface-2);
-  border: 1px solid var(--studio-hairline);
-  border-radius: 4px;
-  font-family: ui-monospace, 'SFMono-Regular', Consolas, monospace;
+  color: var(--text-subtle);
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  font-family: var(--font-mono);
   line-height: 1.35;
 }
-
 #app .ai-page .model-chips .v-chip {
-  background: var(--studio-surface-2);
+  background: var(--bg-sunken);
 }
-
 #app .ai-page .json-preview {
   padding: 12px;
-  color: var(--studio-ink-muted);
-  background: var(--studio-canvas);
-  border: 1px solid var(--studio-hairline);
-  border-radius: 8px;
-  font-family: ui-monospace, 'SFMono-Regular', Consolas, monospace;
+  color: var(--text-muted);
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  font-family: var(--font-mono);
   line-height: 1.55;
 }
-
 #app .ai-page .v-expansion-panel {
-  background: var(--studio-surface-2);
+  background: var(--bg-elevated);
 }
-
 #app .ai-page .empty-cell {
-  color: var(--studio-ink-tertiary);
+  color: var(--text-subtle);
 }
 
 @media (max-width: 840px) {
   #app .ai-page .ai-page-content {
     padding: 14px;
   }
-
   #app .ai-page .toolbar-actions .v-input {
     flex: 1 1 min(100%, 180px);
   }
-
   #app .ai-page .toolbar-actions .v-btn:last-child {
     margin-left: 0;
   }
@@ -517,24 +895,19 @@
     min-height: 62px;
     padding: 12px 14px;
   }
-
   .studio-dialog-body {
     padding: 14px !important;
   }
-
   .studio-form-grid {
     grid-template-columns: 1fr;
   }
-
   .studio-form-grid > .is-full-width {
     grid-column: auto;
   }
-
   .studio-page-header {
     align-items: stretch;
     flex-direction: column;
   }
-
   .studio-page-actions {
     justify-content: flex-start;
   }

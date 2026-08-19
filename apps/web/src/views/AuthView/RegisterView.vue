@@ -1,9 +1,17 @@
 <template>
   <main class="auth-page">
     <section class="auth-card">
-      <div class="auth-brand"><img src="/favicon-48.png" alt="" /> AI Studio</div>
+      <div class="auth-brand">
+        <span class="auth-brand-mark">
+          <svg viewBox="0 0 24 24" width="32" height="32" aria-hidden="true">
+            <rect x="1" y="1" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" />
+            <rect x="12" y="12" width="7" height="7" fill="var(--accent, #cf4a36)" />
+          </svg>
+        </span>
+        <span class="auth-brand-text">AI Studio<small>标注与检测平台</small></span>
+      </div>
       <div v-if="submitted" class="pending-panel">
-        <v-icon icon="mdi-clock-check-outline" size="36" color="primary" />
+        <Icon name="clock-check" :size="36" class="pending-icon" />
         <h1>申请已提交</h1>
         <p>超级管理员批准后即可登录。当前不需要重复注册。</p>
         <v-btn to="/login" variant="tonal" color="primary">返回登录</v-btn>
@@ -41,6 +49,7 @@
 import { ref } from 'vue'
 import { getAuthErrorMessage } from '@/api/auth'
 import { useAuthStore } from '@/stores/auth'
+import { Icon } from '@/components/icons'
 
 const auth = useAuthStore()
 const username = ref('')
@@ -70,3 +79,9 @@ const submit = async () => {
 </script>
 
 <style scoped src="./auth-page.css"></style>
+
+<style scoped>
+.pending-icon {
+  color: var(--accent);
+}
+</style>
