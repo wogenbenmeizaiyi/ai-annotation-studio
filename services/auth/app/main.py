@@ -64,7 +64,7 @@ async def http_exception_handler(_: Request, exc: HTTPException) -> JSONResponse
 async def validation_exception_handler(_: Request, exc: RequestValidationError) -> JSONResponse:
     return JSONResponse(
         status_code=422,
-        content={"code": 422, "message": str(exc.errors()), "data": None},
+        content={"code": 422, "message": "输入内容不符合要求，请检查后重试", "data": None},
     )
 
 

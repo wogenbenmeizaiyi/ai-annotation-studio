@@ -22,6 +22,7 @@
             label="密码"
             type="password"
             autocomplete="new-password"
+            :rules="[passwordRule]"
           />
           <v-text-field
             v-model="confirmPassword"
@@ -50,8 +51,19 @@ const confirmPassword = ref('')
 const loading = ref(false)
 const submitted = ref(false)
 const error = ref('')
+const passwordRule = (value: string) => {
+  if (!value) return '请输入密码'
+  if (value.length < 12) return '密码至少需要 12 位'
+  if (value.length > 128) return '密码不能超过 128 位'
+  return true
+}
 
 const submit = async () => {
+  const passwordValidation = passwordRule(password.value)
+  if (passwordValidation !== true) {
+    error.value = passwordValidation
+    return
+  }
   if (password.value !== confirmPassword.value) {
     error.value = '两次输入的密码不一致'
     return
