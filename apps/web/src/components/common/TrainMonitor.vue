@@ -107,6 +107,7 @@
     <TrainingAnalysisDialog
       v-model="showAnalysisDialog"
       :task-id="taskId"
+      @edit="handleOptimizationEdit"
       @started="handleOptimizationStarted"
     />
   </v-card>
@@ -137,6 +138,7 @@ import type {
   GridComponentOption,
   DataZoomComponentOption,
 } from 'echarts/components'
+import type { TrainOptimizationDraft } from '@/types/trainAgent'
 import {
   getTrainStatus,
   getTrainMetrics,
@@ -179,6 +181,7 @@ const emit = defineEmits<{
     },
   ): void
   (e: 'started', taskId: number): void
+  (e: 'edit', draft: TrainOptimizationDraft): void
 }>()
 
 const trainStatus = ref<TrainTaskStatus | ''>('')
@@ -193,6 +196,11 @@ const showAnalysisDialog = ref(false)
 const handleOptimizationStarted = (taskId: number) => {
   showAnalysisDialog.value = false
   emit('started', taskId)
+}
+
+const handleOptimizationEdit = (draft: TrainOptimizationDraft) => {
+  showAnalysisDialog.value = false
+  emit('edit', draft)
 }
 
 let eventSource: EventSource | null = null

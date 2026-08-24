@@ -14,7 +14,7 @@
             color="primary"
             size="small"
             prepend-icon="mdi-plus"
-            @click="showConfigDialog = true"
+            @click="openConfigDialog"
           >
             新增
           </v-btn>
@@ -90,7 +90,7 @@
         <div v-else class="d-flex flex-column align-center justify-center pa-10">
           <v-icon icon="mdi-clipboard-text-outline" size="40" color="grey-lighten-1" class="mb-3" />
           <p class="text-body-2 text-grey mb-3">暂无训练记录</p>
-          <v-btn v-if="canManage" color="primary" size="small" @click="showConfigDialog = true"
+          <v-btn v-if="canManage" color="primary" size="small" @click="openConfigDialog"
             >开始训练</v-btn
           >
         </div>
@@ -102,6 +102,7 @@
           v-if="selectedTrainId"
           :key="selectedTrainId"
           :task-id="selectedTrainId"
+          @edit="handleOptimizationEdit"
           @progress="onTrainProgress"
           @started="handleAgentStarted"
         />
@@ -123,7 +124,13 @@
         <v-card-title class="train-config-dialog-header d-flex align-center justify-space-between">
           <div>
             <div class="dialog-title">YOLO 训练配置</div>
-            <div class="dialog-subtitle">选择本次训练需要提交的参数</div>
+            <div class="dialog-subtitle">
+              {{
+                pendingParentTrainTaskId !== null
+                  ? `已载入基于训练记录 #${pendingParentTrainTaskId} 的建议，可继续编辑`
+                  : '选择本次训练需要提交的参数'
+              }}
+            </div>
           </div>
           <div class="d-flex align-center ga-2">
             <v-btn
@@ -322,7 +329,9 @@
           <v-btn variant="tonal" color="warning" @click="resetConfig" :disabled="isSubmitting">
             重置
           </v-btn>
-          <v-btn color="primary" @click="startTraining" :loading="isSubmitting"> 开始训练 </v-btn>
+          <v-btn color="primary" @click="startTraining" :loading="isSubmitting">
+            {{ pendingParentTrainTaskId !== null ? '开始下一轮训练' : '开始训练' }}
+          </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -344,7 +353,8 @@
 import { ref, reactive, computed, inject, onMounted, watch } from 'vue'
 import { createTrain, getTask, getTrainList, deleteTrain, retryTrain } from '@/api/services'
 import type { TrainTask, TrainTaskStatus } from '@/types/train'
-import type { TrainConfig } from '@/types/ImageItem'
+import type { CreateTrainRequest, TrainConfig } from '@/types/ImageItem'
+import type { TrainOptimizationDraft } from '@/types/trainAgent'
 import TrainMonitor from '@/components/common/TrainMonitor.vue'
 import TrainingAgentDialog from '@/components/common/TrainingAgentDialog.vue'
 import AppConfirmDialog from '@/components/common/AppConfirmDialog.vue'
@@ -363,6 +373,7 @@ const isLoading = ref(true)
 const isSubmitting = ref(false)
 const showConfigDialog = ref(false)
 const showAgentDialog = ref(false)
+const pendingParentTrainTaskId = ref<number | null>(null)
 const trainPriority = ref(0)
 const selectedTrainId = ref<number | null>(null)
 const trainList = ref<TrainTask[]>([])
@@ -1126,6 +1137,18 @@ const applyAgentConfig = (proposal: Record<string, unknown>) => {
   }
 }
 
+const handleOptimizationEdit = (draft: TrainOptimizationDraft) => {
+  pendingParentTrainTaskId.value = draft.sourceTrainTaskId
+  applyAgentConfig(draft.config)
+  showConfigDialog.value = true
+  snackbar.showSnackbar('下一轮建议已载入，请确认或调整参数后开始训练', 'success', 5000)
+}
+
+const openConfigDialog = () => {
+  pendingParentTrainTaskId.value = null
+  showConfigDialog.value = true
+}
+
 const getTopLevelJsonKeys = (json: string) => {
   const keys: string[] = []
   let depth = 0
@@ -1284,15 +1307,19 @@ const startTraining = async () => {
       throw new Error(jsonConfigError.value)
     }
 
-    const body = {
+    const body: CreateTrainRequest = {
       task_name: taskName,
       priority: Math.max(-100, Math.min(100, Number(trainPriority.value) || 0)),
       config: buildTrainConfig(),
+      ...(pendingParentTrainTaskId.value !== null
+        ? { parent_train_task_id: pendingParentTrainTaskId.value }
+        : {}),
     }
 
     // 配置校验通过后再关闭弹窗，避免 JSON 参数写错时丢失当前输入
     showConfigDialog.value = false
     await createTrain(body)
+    pendingParentTrainTaskId.value = null
     snackbar.showSnackbar('训练任务已进入队列', 'success')
 
     // 无论成功失败都刷新列表

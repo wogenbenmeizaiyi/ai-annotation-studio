@@ -104,6 +104,7 @@ class CreateTaskRequest(BaseModel):
     task_name: str
     config: YoloTrainConfig = Field(default_factory=YoloTrainConfig)
     priority: int = Field(default=0, ge=-100, le=100)
+    parent_train_task_id: Optional[int] = Field(default=None, ge=1)
 
     class Config:
         extra = "forbid"

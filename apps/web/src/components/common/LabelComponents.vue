@@ -74,6 +74,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ANNOTATION_COLOR } from '@/config/annotation'
 
 export interface RectAnnotation {
   id?: string | number
@@ -165,7 +166,7 @@ const currentType = computed(() => {
 })
 
 const currentColor = computed(() => {
-  return currentType.value?.color || '#ff4757'
+  return currentType.value?.color || ANNOTATION_COLOR
 })
 
 // 方法

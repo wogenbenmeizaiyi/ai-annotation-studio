@@ -98,63 +98,104 @@
     </div>
 
     <!-- 添加任务弹窗 -->
-    <v-dialog v-model="showAddForm" max-width="500" persistent>
-      <v-card>
-        <v-card-title class="d-flex align-center justify-space-between">
-          <span>创建新任务</span>
-          <v-btn icon="mdi-close" variant="text" size="small" @click="showAddForm = false" />
+    <v-dialog v-model="showAddForm" max-width="660" persistent scrollable>
+      <v-card class="studio-dialog-card task-create-dialog">
+        <v-card-title class="studio-dialog-header">
+          <div class="studio-dialog-heading">
+            <div class="studio-dialog-title">创建标注任务</div>
+            <p class="studio-dialog-subtitle">设置任务类型、标注类别和基础说明。</p>
+          </div>
+          <v-btn
+            icon="mdi-close"
+            variant="text"
+            size="small"
+            class="studio-dialog-close"
+            aria-label="关闭创建任务弹窗"
+            @click="showAddForm = false"
+          />
         </v-card-title>
 
-        <v-divider />
+        <v-card-text class="studio-dialog-body">
+          <v-form class="task-create-form" @submit.prevent="handleAddTask">
+            <section class="studio-dialog-section">
+              <div class="studio-dialog-section-heading">
+                <span class="studio-dialog-section-title">任务设置</span>
+                <span class="studio-dialog-section-copy">
+                  每个标注任务当前只使用一种检测类型和一个分类。
+                </span>
+              </div>
 
-        <v-card-text>
-          <v-form @submit.prevent="handleAddTask">
-            <v-text-field
-              v-model="newTask.name"
-              label="任务名称 *"
-              placeholder="请输入任务名称"
-              variant="outlined"
-              density="comfortable"
-              class="mb-4"
-              :rules="[rules.required]"
-            />
-
-            <div class="text-subtitle-2 mb-2">检测类型 *</div>
-            <v-radio-group v-model="newTask.detection_type" class="mb-4" inline>
-              <v-radio
-                v-for="type in detectionTypes"
-                :key="type.value"
-                :value="type.value"
-                :label="`${type.label} - ${type.description}`"
+              <v-text-field
+                v-model="newTask.name"
+                label="任务名称 *"
+                placeholder="例如：道路锥桶检测"
+                variant="outlined"
+                density="comfortable"
+                hide-details="auto"
+                :rules="[rules.required]"
               />
-            </v-radio-group>
 
-            <v-text-field
-              v-model="categoryInput"
-              label="分类名称"
-              placeholder="请输入分类名称"
-              variant="outlined"
-              density="comfortable"
-              class="mb-4"
-            />
+              <fieldset class="detection-type-fieldset">
+                <legend>检测类型 *</legend>
+                <div class="detection-type-grid">
+                  <button
+                    v-for="type in detectionTypes"
+                    :key="type.value"
+                    type="button"
+                    class="detection-type-option"
+                    :class="{ 'is-selected': newTask.detection_type === type.value }"
+                    role="radio"
+                    :aria-checked="newTask.detection_type === type.value"
+                    @click="newTask.detection_type = type.value"
+                  >
+                    <span class="detection-type-icon">
+                      <v-icon :icon="type.icon" size="19" />
+                    </span>
+                    <span class="detection-type-copy">
+                      <strong>{{ type.label }}</strong>
+                      <small>{{ type.description }}</small>
+                    </span>
+                    <v-icon
+                      :icon="
+                        newTask.detection_type === type.value
+                          ? 'mdi-check-circle'
+                          : 'mdi-circle-outline'
+                      "
+                      size="18"
+                      class="detection-type-check"
+                    />
+                  </button>
+                </div>
+              </fieldset>
 
-            <v-textarea
-              v-model="newTask.description"
-              label="任务描述"
-              placeholder="请输入任务描述"
-              variant="outlined"
-              density="comfortable"
-              rows="4"
-            />
+              <v-text-field
+                v-model="categoryInput"
+                label="分类名称"
+                placeholder="例如：锥桶"
+                variant="outlined"
+                density="comfortable"
+                hide-details="auto"
+              />
+
+              <v-textarea
+                v-model="newTask.description"
+                label="任务描述"
+                placeholder="补充任务目标或标注要求"
+                variant="outlined"
+                density="comfortable"
+                rows="3"
+                hide-details="auto"
+              />
+            </section>
           </v-form>
         </v-card-text>
 
-        <v-divider />
-
-        <v-card-actions class="pa-4">
-          <v-btn variant="outlined" @click="showAddForm = false">取消</v-btn>
+        <v-card-actions class="studio-dialog-actions">
+          <v-btn variant="text" @click="showAddForm = false">取消</v-btn>
           <v-spacer />
-          <v-btn color="primary" @click="handleAddTask">创建任务</v-btn>
+          <v-btn color="primary" variant="flat" prepend-icon="mdi-plus" @click="handleAddTask">
+            创建任务
+          </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -201,11 +242,13 @@ const detectionTypes = [
     value: 'segmentation',
     label: '分割',
     description: '像素级别的图像分割',
+    icon: 'mdi-vector-polygon',
   },
   {
     value: 'detection',
     label: '检测',
     description: '边界框目标检测',
+    icon: 'mdi-vector-square',
   },
 ]
 
@@ -411,6 +454,106 @@ const handleDeleteTask = async (taskName: string): Promise<void> => {
   padding: 40px;
 }
 
+.task-create-dialog {
+  width: 100%;
+}
+
+.task-create-form {
+  display: grid;
+}
+
+.detection-type-fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.detection-type-fieldset legend {
+  margin-bottom: 8px;
+  color: var(--studio-ink-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.detection-type-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.detection-type-option {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 12px;
+  color: var(--studio-ink-muted);
+  text-align: left;
+  background: var(--studio-surface-1);
+  border: 1px solid var(--studio-hairline-strong);
+  border-radius: 8px;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.detection-type-option:hover {
+  background: var(--studio-surface-3);
+  border-color: rgba(var(--v-theme-primary), 0.45);
+}
+
+.detection-type-option.is-selected {
+  color: var(--studio-ink);
+  background: rgba(var(--v-theme-primary), 0.13);
+  border-color: rgba(var(--v-theme-primary), 0.62);
+  box-shadow: inset 0 0 0 1px rgba(var(--v-theme-primary), 0.12);
+}
+
+.detection-type-icon {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--studio-ink-subtle);
+  background: var(--studio-surface-3);
+  border: 1px solid var(--studio-hairline);
+  border-radius: 7px;
+}
+
+.detection-type-option.is-selected .detection-type-icon,
+.detection-type-option.is-selected .detection-type-check {
+  color: rgb(var(--v-theme-primary));
+}
+
+.detection-type-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.detection-type-copy strong {
+  color: inherit;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.detection-type-copy small {
+  overflow: hidden;
+  color: var(--studio-ink-subtle);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.detection-type-check {
+  color: var(--studio-ink-tertiary);
+}
+
 @media (max-width: 768px) {
   .task-list-page {
     padding: 16px;
@@ -419,6 +562,10 @@ const handleDeleteTask = async (taskName: string): Promise<void> => {
   .tasks-grid {
     grid-template-columns: 1fr;
     gap: 16px;
+  }
+
+  .detection-type-grid {
+    grid-template-columns: 1fr;
   }
 }
 

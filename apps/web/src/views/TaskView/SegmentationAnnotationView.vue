@@ -241,6 +241,7 @@ import { useRoute } from 'vue-router'
 import type { CocoAnnotation, CocoDataset, UpdateAnnotationRequest } from '@/types/CocoDataset'
 import type { CocoCategory } from '@/types/CocoCategory'
 import { getAnnotation, getImage, getImageList, getTask, updateAnnotation } from '@/api/services'
+import { ANNOTATION_COLOR } from '@/config/annotation'
 import { createWebSocketUrl } from '@/config/env'
 import PolygonLabelComponents, {
   type Point,
@@ -384,7 +385,7 @@ const getCurrentTypeLabel = (): string => {
 
 const getPolygonColor = (polygon: PolygonAnnotation): string => {
   const type = typeConfigs.value.find((t) => t.id === polygon.typeId)
-  return type?.color || '#ff4757'
+  return type?.color || ANNOTATION_COLOR
 }
 
 const getTypeLabel = (typeId: string | number): string => {
@@ -421,22 +422,9 @@ function categoriesToTypeConfigs(categories: CocoCategory[]): TypeConfig[] {
   return categories.map((c) => ({
     id: c.id,
     label: c.name,
-    color: getColorById(c.id),
+    color: ANNOTATION_COLOR,
     description: c.supercategory ?? '',
   }))
-}
-
-const COLOR_MAP: Record<number, string> = {
-  1: '#ff4d4f',
-  2: '#faad14',
-  3: '#52c41a',
-  4: '#1890ff',
-}
-
-const DEFAULT_COLORS = ['#722ed1', '#eb2f96', '#13c2c2']
-
-function getColorById(id: number): string {
-  return COLOR_MAP[id] ?? DEFAULT_COLORS[id % DEFAULT_COLORS.length]!
 }
 
 const loadImage = async () => {
@@ -542,7 +530,7 @@ const drawSmartOverlay = () => {
   ctx.clearRect(0, 0, canvas.width, canvas.height)
 
   for (const ann of annotations.value) {
-    const color = getColorById(ann.typeId as number)
+    const color = getPolygonColor(ann)
     ctx.beginPath()
     ctx.strokeStyle = color
     ctx.lineWidth = 2

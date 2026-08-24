@@ -14,21 +14,39 @@
           <p>注册后需要超级管理员审批，密码至少 12 位。</p>
         </div>
         <v-alert v-if="error" type="error" variant="tonal" density="compact">{{ error }}</v-alert>
-        <v-form @submit.prevent="submit">
-          <v-text-field v-model="username" label="用户名" autocomplete="username" autofocus />
-          <v-text-field v-model="displayName" label="显示名称" autocomplete="name" />
+        <v-form ref="formRef" @submit.prevent="submit">
+          <v-text-field
+            v-model="username"
+            label="用户名"
+            autocomplete="username"
+            hint="3–64 位，仅支持字母、数字、下划线和连字符"
+            persistent-hint
+            :rules="usernameRules"
+            autofocus
+          />
+          <v-text-field
+            v-model="displayName"
+            label="显示名称"
+            autocomplete="name"
+            hint="用于界面展示，最多 100 个字符"
+            persistent-hint
+            :rules="displayNameRules"
+          />
           <v-text-field
             v-model="password"
             label="密码"
             type="password"
             autocomplete="new-password"
-            :rules="[passwordRule]"
+            hint="请输入 12–128 位密码"
+            persistent-hint
+            :rules="passwordRules"
           />
           <v-text-field
             v-model="confirmPassword"
             label="确认密码"
             type="password"
             autocomplete="new-password"
+            :rules="confirmPasswordRules"
           />
           <v-btn type="submit" color="primary" block :loading="loading">提交注册申请</v-btn>
         </v-form>
@@ -51,21 +69,41 @@ const confirmPassword = ref('')
 const loading = ref(false)
 const submitted = ref(false)
 const error = ref('')
-const passwordRule = (value: string) => {
-  if (!value) return '请输入密码'
-  if (value.length < 12) return '密码至少需要 12 位'
-  if (value.length > 128) return '密码不能超过 128 位'
-  return true
+
+interface ValidatableForm {
+  validate: () => Promise<{ valid: boolean }>
 }
 
+const formRef = ref<ValidatableForm | null>(null)
+
+const usernameRules = [
+  (value: string) => !!value.trim() || '请输入用户名',
+  (value: string) => value.trim().length >= 3 || '用户名至少需要 3 位',
+  (value: string) => value.trim().length <= 64 || '用户名不能超过 64 位',
+  (value: string) =>
+    /^[\p{L}\p{N}_-]+$/u.test(value.trim()) || '用户名只能包含字母、数字、下划线和连字符',
+]
+
+const displayNameRules = [
+  (value: string) => !!value.trim() || '请输入显示名称',
+  (value: string) => value.trim().length <= 100 || '显示名称不能超过 100 个字符',
+]
+
+const passwordRules = [
+  (value: string) => !!value || '请输入密码',
+  (value: string) => value.length >= 12 || '密码至少需要 12 位',
+  (value: string) => value.length <= 128 || '密码不能超过 128 位',
+]
+
+const confirmPasswordRules = [
+  (value: string) => !!value || '请再次输入密码',
+  (value: string) => value === password.value || '两次输入的密码不一致',
+]
+
 const submit = async () => {
-  const passwordValidation = passwordRule(password.value)
-  if (passwordValidation !== true) {
-    error.value = passwordValidation
-    return
-  }
-  if (password.value !== confirmPassword.value) {
-    error.value = '两次输入的密码不一致'
+  const validation = await formRef.value?.validate()
+  if (!validation?.valid) {
+    error.value = '请检查下方标红的注册信息'
     return
   }
   error.value = ''

@@ -144,6 +144,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, nextTick } from 'vue'
+import { ANNOTATION_COLOR } from '@/config/annotation'
 
 // 类型定义
 export interface Point {
@@ -222,7 +223,7 @@ const currentType = computed(() => {
 })
 
 const currentColor = computed(() => {
-  return currentType.value?.color || '#ff4757'
+  return currentType.value?.color || ANNOTATION_COLOR
 })
 
 const completedPolygons = computed(() => {
@@ -500,7 +501,7 @@ defineExpose({
 
 .drawing-point:hover {
   r: 6;
-  fill: #ff6b81;
+  fill: var(--studio-annotation);
 }
 
 .drawing-line {
@@ -580,7 +581,7 @@ defineExpose({
 }
 
 .status-value.drawing {
-  color: #ff4757;
+  color: var(--studio-annotation);
   font-weight: bold;
 }
 

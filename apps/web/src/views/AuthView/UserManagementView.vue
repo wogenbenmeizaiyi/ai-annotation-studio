@@ -35,20 +35,41 @@
           </div>
         </template>
         <template #item.role="{ item }">
-          <span v-if="item.is_platform_owner" class="owner-pill">
-            <v-icon icon="mdi-shield-crown-outline" size="14" />
-            平台所有者
-          </span>
-          <v-select
-            v-else
-            :model-value="item.role"
-            :items="roleOptions"
-            density="compact"
-            hide-details
-            class="role-select"
-            :disabled="busyId === item.id || !auth.isPlatformOwner"
-            @update:model-value="(role) => changeRole(item, role)"
-          />
+          <div class="role-cell">
+            <span
+              class="role-pill"
+              :class="
+                item.is_platform_owner
+                  ? 'is-owner'
+                  : item.role === 'super_admin'
+                    ? 'is-super-admin'
+                    : 'is-user'
+              "
+            >
+              <v-icon :icon="getRoleIcon(item)" size="14" />
+              {{ getRoleText(item) }}
+            </span>
+            <v-tooltip
+              v-if="canChangeRole(item)"
+              :text="item.role === 'user' ? '晋升为超级管理员' : '降级为普通用户'"
+              location="top"
+            >
+              <template #activator="{ props: tooltipProps }">
+                <v-btn
+                  v-bind="tooltipProps"
+                  :icon="item.role === 'user' ? 'mdi-chevron-double-up' : 'mdi-chevron-double-down'"
+                  size="x-small"
+                  variant="tonal"
+                  :color="item.role === 'user' ? 'warning' : 'error'"
+                  :loading="busyId === item.id"
+                  :disabled="busyId !== ''"
+                  class="role-change-btn"
+                  :aria-label="`${item.role === 'user' ? '晋升' : '降级'}用户 ${item.display_name}`"
+                  @click="toggleRole(item)"
+                />
+              </template>
+            </v-tooltip>
+          </div>
         </template>
         <template #item.status="{ item }">
           <span class="status-pill" :class="`is-${item.status}`">{{
@@ -150,9 +171,17 @@ import {
   type UserStatus,
 } from '@/api/auth'
 
+const getRoleRank = (user: StudioUser): number => {
+  if (user.is_platform_owner) return 0
+  return user.role === 'super_admin' ? 1 : 2
+}
+
+const compareUserRole = (first: StudioUser, second: StudioUser): number =>
+  getRoleRank(first) - getRoleRank(second)
+
 const headers = [
   { title: '用户', key: 'identity' },
-  { title: '角色', key: 'role', width: 170 },
+  { title: '角色', key: 'role', width: 220, sortRaw: compareUserRole },
   { title: '状态', key: 'status', width: 120 },
   { title: '注册时间', key: 'created_at', width: 190 },
   { title: '', key: 'actions', sortable: false, align: 'end' as const, width: 250 },
@@ -161,10 +190,6 @@ const statusOptions = [
   { title: '待审批', value: 'pending' },
   { title: '已启用', value: 'active' },
   { title: '已禁用', value: 'disabled' },
-]
-const roleOptions = [
-  { title: '普通用户', value: 'user' },
-  { title: '超级管理员', value: 'super_admin' },
 ]
 const statusText: Record<UserStatus, string> = {
   pending: '待审批',
@@ -188,6 +213,15 @@ const newPassword = ref('')
 const formatDate = (value: string) => new Date(value).toLocaleString('zh-CN', { hour12: false })
 const canManageAccount = (user: StudioUser): boolean =>
   !user.is_platform_owner && (auth.isPlatformOwner || user.role !== 'super_admin')
+const canChangeRole = (user: StudioUser): boolean => auth.isPlatformOwner && !user.is_platform_owner
+const getRoleText = (user: StudioUser): string => {
+  if (user.is_platform_owner) return '平台所有者'
+  return user.role === 'super_admin' ? '超级管理员' : '普通用户'
+}
+const getRoleIcon = (user: StudioUser): string => {
+  if (user.is_platform_owner) return 'mdi-shield-crown-outline'
+  return user.role === 'super_admin' ? 'mdi-shield-star-outline' : 'mdi-account-outline'
+}
 
 const loadUsers = async (targetPage = page.value) => {
   loading.value = true
@@ -223,6 +257,7 @@ const runAction = async (id: string, action: 'approve' | 'enable' | 'disable') =
 const changeRole = async (user: StudioUser, role: UserRole) => {
   if (role === user.role || !auth.isPlatformOwner || user.is_platform_owner) return
   busyId.value = user.id
+  error.value = ''
   try {
     await updateUserRole(user.id, role)
     await loadUsers()
@@ -231,6 +266,11 @@ const changeRole = async (user: StudioUser, role: UserRole) => {
   } finally {
     busyId.value = ''
   }
+}
+
+const toggleRole = (user: StudioUser) => {
+  const nextRole: UserRole = user.role === 'user' ? 'super_admin' : 'user'
+  void changeRole(user, nextRole)
 }
 
 const openReset = (user: StudioUser) => {
@@ -324,22 +364,46 @@ onMounted(() => loadUsers())
   color: var(--studio-ink-subtle);
   font-size: 12px;
 }
-.role-select {
-  width: 150px;
+.role-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
-.owner-pill,
+.role-pill,
 .protected-note {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  color: var(--studio-ink-subtle);
   font-size: 12px;
 }
-.owner-pill {
+.role-pill {
+  width: 98px;
+  justify-content: center;
   padding: 5px 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+.role-pill.is-user {
+  color: var(--studio-ink-subtle);
+  background: var(--studio-surface-3);
+  border-color: var(--studio-hairline);
+}
+.role-pill.is-super-admin {
+  color: rgb(var(--v-theme-warning));
+  background: rgba(var(--v-theme-warning), 0.1);
+  border-color: rgba(var(--v-theme-warning), 0.2);
+}
+.role-pill.is-owner {
   color: rgb(var(--v-theme-primary));
   background: rgba(var(--v-theme-primary), 0.1);
-  border-radius: 6px;
+  border-color: rgba(var(--v-theme-primary), 0.2);
+}
+.protected-note {
+  color: var(--studio-ink-subtle);
+}
+.role-change-btn {
+  flex: 0 0 auto;
 }
 .status-pill {
   display: inline-flex;

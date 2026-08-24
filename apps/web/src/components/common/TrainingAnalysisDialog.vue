@@ -68,6 +68,29 @@
               </div>
             </section>
 
+            <section
+              v-if="!optimizationProposal && !isAnalysisPending"
+              class="analysis-optimization-prompt"
+            >
+              <div class="analysis-section-title">
+                <v-icon icon="mdi-message-text-outline" color="primary" size="20" />
+                补充下一轮要求
+              </div>
+              <v-textarea
+                v-model="optimizationInstruction"
+                label="人工提示词（可选）"
+                placeholder="例如：优先提高召回率；保持 batch 不变；减少过拟合并缩短训练轮次"
+                hint="系统会同时参考本次训练参数、指标分析和这里填写的要求。"
+                persistent-hint
+                variant="outlined"
+                density="comfortable"
+                rows="2"
+                auto-grow
+                maxlength="5000"
+                counter="5000"
+              />
+            </section>
+
             <section v-if="optimizationProposal" class="analysis-optimization">
               <div class="analysis-section-title">
                 <v-icon icon="mdi-tune-variant" color="primary" size="20" />
@@ -163,16 +186,26 @@
         >
           基于本次生成下一轮方案
         </v-btn>
-        <v-btn
-          v-else-if="!optimizationMessage"
-          color="primary"
-          prepend-icon="mdi-play-circle-outline"
-          :loading="isStartingOptimization"
-          :disabled="!optimizationProposal.ready_to_apply"
-          @click="confirmAndStartOptimization"
-        >
-          确认并启动下一轮
-        </v-btn>
+        <template v-else-if="!optimizationMessage">
+          <v-btn
+            color="primary"
+            variant="tonal"
+            prepend-icon="mdi-pencil-outline"
+            :disabled="!optimizationProposal.ready_to_apply || isStartingOptimization"
+            @click="confirmAndEditOptimization"
+          >
+            确认并编辑参数
+          </v-btn>
+          <v-btn
+            color="primary"
+            prepend-icon="mdi-play-circle-outline"
+            :loading="isStartingOptimization"
+            :disabled="!optimizationProposal.ready_to_apply"
+            @click="confirmAndStartOptimization"
+          >
+            确认并开始训练
+          </v-btn>
+        </template>
       </v-card-actions>
     </v-card>
   </v-dialog>
@@ -193,6 +226,7 @@ import type {
   TrainAgentAutoAnalysis,
   TrainAgentChatResponse,
   TrainAgentConfig,
+  TrainOptimizationDraft,
 } from '@/types/trainAgent'
 
 interface AnalysisDisplayItem {
@@ -211,12 +245,14 @@ const props = defineProps<{
 const emit = defineEmits<{
   (event: 'update:modelValue', value: boolean): void
   (event: 'started', taskId: number): void
+  (event: 'edit', draft: TrainOptimizationDraft): void
 }>()
 
 const autoAnalysis = ref<TrainAgentAutoAnalysis | null>(null)
 const isLoading = ref(false)
 const errorMessage = ref('')
 const optimizationProposal = ref<TrainAgentChatResponse | null>(null)
+const optimizationInstruction = ref('')
 const optimizationMessage = ref('')
 const isGeneratingOptimization = ref(false)
 const isStartingOptimization = ref(false)
@@ -474,13 +510,31 @@ const generateOptimizationProposal = async () => {
   errorMessage.value = ''
   optimizationMessage.value = ''
   try {
-    optimizationProposal.value = await createTrainAgentOptimizationProposal(props.taskId)
+    const customInstruction = optimizationInstruction.value.trim()
+    const instruction = customInstruction
+      ? `基于本次训练报告生成下一轮优化训练参数草案。用户补充要求：${customInstruction}`
+      : '基于本次训练报告生成下一轮优化训练参数草案'
+    optimizationProposal.value = await createTrainAgentOptimizationProposal(
+      props.taskId,
+      instruction,
+    )
   } catch (error) {
     console.error('生成下一轮优化训练草案失败:', error)
     errorMessage.value = getErrorMessage(error)
   } finally {
     isGeneratingOptimization.value = false
   }
+}
+
+const confirmAndEditOptimization = () => {
+  const config = optimizationProposal.value?.config
+  if (!config || !optimizationProposal.value?.ready_to_apply) return
+
+  dialogVisible.value = false
+  emit('edit', {
+    config: config as TrainAgentConfig,
+    sourceTrainTaskId: props.taskId,
+  })
 }
 
 const confirmAndStartOptimization = async () => {
@@ -490,10 +544,7 @@ const confirmAndStartOptimization = async () => {
   isStartingOptimization.value = true
   errorMessage.value = ''
   try {
-    const confirmation = await confirmTrainAgentProposal(
-      proposalId,
-      config as TrainAgentConfig,
-    )
+    const confirmation = await confirmTrainAgentProposal(proposalId, config as TrainAgentConfig)
     if (!confirmation.confirmation_token) {
       throw new Error('后端没有返回训练确认令牌')
     }
@@ -532,6 +583,7 @@ watch(
     if (visible && (!autoAnalysis.value || previous?.[1] !== props.taskId)) {
       autoAnalysis.value = null
       optimizationProposal.value = null
+      optimizationInstruction.value = ''
       optimizationMessage.value = ''
       loadAnalysis()
     } else if (!visible) {
@@ -596,11 +648,16 @@ onUnmounted(clearRefreshTimer)
 .analysis-suggestions,
 .analysis-extra,
 .analysis-optimization,
+.analysis-optimization-prompt,
 .model-analysis-reply {
   padding: 16px;
   border: 1px solid var(--studio-hairline);
   border-radius: 9px;
   background: var(--studio-surface-1);
+}
+
+.analysis-optimization-prompt :deep(.v-field) {
+  background: var(--studio-surface-2);
 }
 
 .optimization-change-list {

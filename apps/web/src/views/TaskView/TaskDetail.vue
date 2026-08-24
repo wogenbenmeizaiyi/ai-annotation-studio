@@ -174,10 +174,35 @@
           <v-pagination
             v-model="currentPage"
             :length="totalPages"
-            :total-visible="7"
-            density="comfortable"
+            :total-visible="5"
+            density="compact"
             rounded
           />
+          <div class="page-jump-control">
+            <span>跳至</span>
+            <v-text-field
+              v-model="pageJumpInput"
+              class="page-jump-input"
+              type="text"
+              inputmode="numeric"
+              density="compact"
+              variant="outlined"
+              placeholder="页码"
+              aria-label="输入要跳转的页码"
+              hide-details
+              @keydown.enter.prevent="jumpToPage"
+            />
+            <span>页</span>
+            <v-btn
+              class="page-jump-button"
+              size="small"
+              variant="tonal"
+              :disabled="!canSubmitPageJump"
+              @click="jumpToPage"
+            >
+              跳转
+            </v-btn>
+          </div>
         </div>
       </div>
     </div>
@@ -236,8 +261,7 @@
 
               <div class="upload-progress-meta">
                 <span>
-                  已完成 {{ uploadProgress.completedFiles }} /
-                  {{ uploadProgress.totalFiles }} 张
+                  已完成 {{ uploadProgress.completedFiles }} / {{ uploadProgress.totalFiles }} 张
                 </span>
                 <span>
                   {{ formatFileSize(uploadProgress.uploadedBytes) }} /
@@ -385,6 +409,7 @@ const TABLE_LAYOUT_BUFFER = 8
 const pageSize = ref(7)
 const canManage = ref(false)
 const currentPage = ref(getInitialCurrentPage())
+const pageJumpInput = ref<string | number>('')
 const totalImagesCount = ref(0)
 const annotatedImagesCount = ref(0)
 const tableWrapperRef = ref<HTMLElement | null>(null)
@@ -512,6 +537,24 @@ const pendingCount = computed(() =>
 )
 const totalPages = computed(() => Math.ceil(totalImagesCount.value / pageSize.value))
 const paginatedImages = computed(() => source.value)
+const canSubmitPageJump = computed(() => {
+  const rawPage = String(pageJumpInput.value).trim()
+  return rawPage.length > 0 && Number.isInteger(Number(rawPage))
+})
+
+const jumpToPage = () => {
+  const rawPage = String(pageJumpInput.value).trim()
+  if (!rawPage) return
+
+  const requestedPage = Number(rawPage)
+  if (!Number.isInteger(requestedPage)) return
+
+  const targetPage = Math.min(Math.max(requestedPage, 1), totalPages.value)
+  pageJumpInput.value = ''
+  if (targetPage !== currentPage.value) {
+    currentPage.value = targetPage
+  }
+}
 
 const loadCurrentPageData = async () => {
   source.value = await getImagesByPage(taskName.value, currentPage.value, pageSize.value)
@@ -605,6 +648,7 @@ onBeforeUnmount(() => {
 })
 
 watch(currentPage, () => {
+  pageJumpInput.value = ''
   loadCurrentPageData()
   void syncCurrentPageToRoute()
 })
@@ -692,8 +736,7 @@ const createUploadBatches = (selectedFiles: File[]) => {
 
   selectedFiles.forEach((file) => {
     const exceedsFileCount = currentBatch.length >= MAX_BATCH_FILES
-    const exceedsByteLimit =
-      currentBatch.length > 0 && currentBytes + file.size > MAX_BATCH_BYTES
+    const exceedsByteLimit = currentBatch.length > 0 && currentBytes + file.size > MAX_BATCH_BYTES
 
     if (exceedsFileCount || exceedsByteLimit) {
       batches.push(currentBatch)
@@ -713,9 +756,7 @@ const createUploadBatches = (selectedFiles: File[]) => {
 }
 
 const formatUploadSize = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(1)} MiB`
-const selectedTotalBytes = computed(() =>
-  files.value.reduce((total, file) => total + file.size, 0),
-)
+const selectedTotalBytes = computed(() => files.value.reduce((total, file) => total + file.size, 0))
 const plannedBatchCount = computed(() => createUploadBatches(files.value).length)
 
 const confirmUpload = async () => {
@@ -732,9 +773,7 @@ const confirmUpload = async () => {
     totalBatches: batches.length,
     currentBatchFiles: batches[0]?.length ?? 0,
   }
-  console.log(
-    `[上传] 开始上传，共 ${files.value.length} 张图片，拆分为 ${batches.length} 批`,
-  )
+  console.log(`[上传] 开始上传，共 ${files.value.length} 张图片，拆分为 ${batches.length} 批`)
 
   let failedCount = 0
   let completedCount = 0
@@ -1017,8 +1056,41 @@ const onImageLoad = (item: ImageItem) => {
   flex: 0 0 auto;
   padding: 6px 12px;
   display: flex;
+  align-items: center;
   justify-content: center;
+  gap: 14px;
   border-top: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
+}
+
+.page-jump-control {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: rgba(var(--v-theme-on-surface), 0.68);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.page-jump-input {
+  width: 84px;
+  flex: 0 0 84px;
+}
+
+.page-jump-input :deep(.v-field),
+.page-jump-input :deep(.v-field__input) {
+  min-height: 34px;
+}
+
+.page-jump-input :deep(.v-field__input) {
+  padding-inline: 10px;
+  padding-top: 0;
+  padding-bottom: 0;
+  text-align: center;
+}
+
+.page-jump-button {
+  min-width: 52px;
 }
 
 .upload-card {

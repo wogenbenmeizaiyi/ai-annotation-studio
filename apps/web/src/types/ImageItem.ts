@@ -40,4 +40,5 @@ export interface CreateTrainRequest {
   task_name: string
   priority?: number
   config?: Partial<TrainConfig>
+  parent_train_task_id?: number
 }

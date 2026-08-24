@@ -45,7 +45,10 @@ def _serialize_train_task(task: TrainTaskModel, auth: AuthContext) -> dict:
 def create_task(payload: CreateTaskRequest, request: Request):
     require_task_manager(payload.task_name, get_request_auth(request))
     try:
-        task_id = train_task_service.start_training(payload)
+        task_id = train_task_service.start_training(
+            payload,
+            parent_train_task_id=payload.parent_train_task_id,
+        )
         return _api_response(
             ApiResponse.success_response(
                 data={"task_id": task_id},

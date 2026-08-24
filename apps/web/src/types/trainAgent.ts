@@ -1,5 +1,10 @@
 export type TrainAgentConfig = Record<string, unknown>
 
+export interface TrainOptimizationDraft {
+  config: TrainAgentConfig
+  sourceTrainTaskId: number
+}
+
 export interface TrainAgentChatRequest {
   session_id: string | null
   task_name: string

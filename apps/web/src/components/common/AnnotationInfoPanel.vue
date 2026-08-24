@@ -156,7 +156,16 @@ defineProps<{
 }
 
 .annotations-container :deep(.annotation-card.annotation-active) {
-  background: rgba(94, 106, 210, 0.12) !important;
+  background: linear-gradient(
+    90deg,
+    rgba(var(--studio-annotation-rgb), 0.27),
+    rgba(var(--studio-annotation-rgb), 0.15)
+  ) !important;
+  border-color: rgba(var(--studio-annotation-rgb), 0.5) !important;
+  border-left-color: var(--studio-annotation) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(var(--studio-annotation-rgb), 0.18),
+    0 4px 12px rgba(0, 0, 0, 0.16);
 }
 
 .empty-state {

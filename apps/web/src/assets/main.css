@@ -15,6 +15,8 @@
   --studio-ink-tertiary: #62666d;
   --studio-primary: #5e6ad2;
   --studio-primary-hover: #828fff;
+  --studio-annotation: #8b6ff2;
+  --studio-annotation-rgb: 139, 111, 242;
   --studio-focus-ring: rgba(94, 106, 210, 0.5);
 }
 

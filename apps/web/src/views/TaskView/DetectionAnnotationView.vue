@@ -205,6 +205,7 @@ import type { CocoAnnotation, CocoDataset, UpdateAnnotationRequest } from '@/typ
 import { getAnnotation, getImage, getImageList, getTask, updateAnnotation } from '@/api/services'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import { useSnackbar } from '@/composables/useSnackbar'
+import { ANNOTATION_COLOR } from '@/config/annotation'
 import { createWebSocketUrl } from '@/config/env'
 
 const confirmDialog = useConfirmDialog()
@@ -311,23 +312,12 @@ const getTaskDimensionType = async () => {
   typeConfigs.value = res.categories.map((c) => ({
     id: c.id,
     label: c.name,
-    color: getColorById(c.id),
+    color: ANNOTATION_COLOR,
     description: c.supercategory ?? '',
   }))
   if (currentTypeId.value === undefined && typeConfigs.value.length > 0) {
     currentTypeId.value = typeConfigs.value[0]!.id
   }
-}
-
-function getColorById(id: number): string {
-  const COLOR_MAP: Record<number, string> = {
-    1: '#ff4d4f',
-    2: '#faad14',
-    3: '#52c41a',
-    4: '#1890ff',
-  }
-  const DEFAULT_COLORS = ['#722ed1', '#eb2f96', '#13c2c2']
-  return COLOR_MAP[id] ?? DEFAULT_COLORS[id % DEFAULT_COLORS.length]!
 }
 
 const getCurrentTypeLabel = (): string => {
@@ -346,7 +336,7 @@ const toggleType = (id: string | number) => {
 
 const getRectColor = (rect: RectAnnotation): string => {
   const type = typeConfigs.value.find((t) => t.id === rect.typeId)
-  return type?.color || '#ff4757'
+  return type?.color || ANNOTATION_COLOR
 }
 
 const getTypeLabel = (typeId: string | number): string => {
