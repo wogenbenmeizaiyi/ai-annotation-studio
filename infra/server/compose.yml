@@ -42,6 +42,7 @@ x-annotation-environment: &annotation-environment
   AGENT_API_KEY: ${AGENT_API_KEY:-}
   AGENT_MODEL: ${AGENT_MODEL:-qwen3.7-plus}
   AGENT_BASE_URL: ${AGENT_BASE_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1}
+  AGENT_TIMEOUT_SECONDS: ${AGENT_TIMEOUT_SECONDS:-180}
   AGENT_LOG_FILE: /app/logs/agent.log
   AUTH_PUBLIC_KEY_PATH: /keys/public/auth-public.pem
   AUTH_ISSUER: ${AUTH_ISSUER:-ai-annotation-studio-auth}

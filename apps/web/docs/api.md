@@ -603,7 +603,7 @@ Agent 与现有标注、训练接口运行在同一个 FastAPI 服务中。API K
 AGENT_API_KEY=
 AGENT_MODEL=qwen3.7-plus
 AGENT_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
-AGENT_TIMEOUT_SECONDS=60
+AGENT_TIMEOUT_SECONDS=180
 AGENT_MAX_OUTPUT_TOKENS=2000
 AGENT_FORCE_IPV4=true
 AGENT_LOG_FILE=agent.log
@@ -659,7 +659,12 @@ Agent固定使用`enable_thinking=false`：`qwen3.7-plus`默认开启思考模�
 
 服务重启会恢复`PENDING`或`RUNNING`状态的分析。该接口只读取已保存结果，不会再次调用大模型。
 确定性分析会先于模型总结保存，因此即使模型请求失败，`analysis`仍可用于页面展示。
+模型响应读取超时会自动重试一次；连接超时、鉴权错误、额度不足和限流不会自动重试。
 数据库表结构由Alembic管理；CI部署会在停止旧容器后自动执行`alembic upgrade head`。
+
+### POST `/api/train/agent/analysis/{train_task_id}/auto/retry`
+
+仅允许重新生成状态为`FAILED`的自动分析。接口会原子地将记录重置为`PENDING`并启动后台生成；其他状态会返回`409`，避免重复调用模型。
 
 ### 训练队列环境变量
 

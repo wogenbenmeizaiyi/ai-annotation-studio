@@ -122,6 +122,42 @@ class AutoTrainingAnalysisService:
             self._start_worker(train_task_id)
         return result
 
+    def retry(self, train_task_id: int) -> Dict[str, Any]:
+        """重新执行一条失败的自动分析，避免并发重复调用模型。"""
+        db = SessionLocal()
+        try:
+            record = (
+                db.query(AgentTrainingAnalysisModel)
+                .filter(AgentTrainingAnalysisModel.train_task_id == train_task_id)
+                .with_for_update()
+                .first()
+            )
+            if not record:
+                raise LookupError("该训练任务尚无自动分析记录")
+            task = db.get(TrainTaskModel, train_task_id)
+            if not task or task.is_deleted or task.status != "FINISHED":
+                raise ValueError("训练任务不存在或尚未完成")
+            if record.status != "FAILED":
+                raise ValueError("只有生成失败的自动分析可以重试")
+
+            record.status = "PENDING"
+            record.model_name = settings.AGENT_MODEL
+            record.model_result_json = None
+            record.error_message = None
+            record.started_at = None
+            record.completed_at = None
+            db.commit()
+            result = self._serialize(record)
+        except Exception:
+            db.rollback()
+            raise
+        finally:
+            db.close()
+
+        self._start_worker(train_task_id)
+        logger.info("auto_analysis_retry_scheduled train_task_id=%s", train_task_id)
+        return result
+
     def _start_worker(self, train_task_id: int) -> None:
         thread = threading.Thread(
             target=self._run,

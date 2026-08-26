@@ -1,9 +1,13 @@
 import unittest
+from datetime import datetime, timezone
 from io import BytesIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import httpx
+from openai import APIStatusError, APITimeoutError
 
 from app.schemas.train_task import YoloTrainConfig
 from app.services.YOLO.train_task_service import _TrainingEpochGuard
@@ -15,6 +19,7 @@ from app.services.YOLO.yolo_dataset_builder import (
 )
 from app.services.agent.config_policy import validate_training_config
 from app.services.agent.auto_analysis_service import AutoTrainingAnalysisService
+from app.services.agent.model_client import AgentModelClient
 from app.services.agent.training_analyzer import TrainingAnalyzer
 
 
@@ -289,6 +294,117 @@ class AnalyzerTests(unittest.TestCase):
         self.assertIn("验收标准", prompt)
         self.assertIn("comparison_to_parent", prompt)
         self.assertEqual(result.reply, "完整报告")
+
+    def test_failed_auto_analysis_can_be_requeued_once(self):
+        now = datetime.now(timezone.utc)
+        record = SimpleNamespace(
+            id="analysis-81",
+            train_task_id=81,
+            status="FAILED",
+            analyzer_version="3.0",
+            model_name="qwen3.7-plus",
+            analysis_json='{"summary": {"metric_count": 74}}',
+            model_result_json=None,
+            error_message="Agent模型响应超时",
+            started_at=now,
+            completed_at=now,
+            created_at=now,
+            updated_at=now,
+        )
+        db = MagicMock()
+        db.query.return_value.filter.return_value.with_for_update.return_value.first.return_value = (
+            record
+        )
+        db.get.return_value = SimpleNamespace(
+            id=81,
+            is_deleted=False,
+            status="FINISHED",
+        )
+        service = AutoTrainingAnalysisService()
+
+        with (
+            patch(
+                "app.services.agent.auto_analysis_service.SessionLocal",
+                return_value=db,
+            ),
+            patch.object(service, "_start_worker") as start_worker,
+        ):
+            result = service.retry(81)
+
+        self.assertEqual(record.status, "PENDING")
+        self.assertIsNone(record.error_message)
+        self.assertIsNone(record.completed_at)
+        self.assertEqual(result["status"], "PENDING")
+        db.commit.assert_called_once()
+        start_worker.assert_called_once_with(81)
+
+
+class AgentModelClientTests(unittest.IsolatedAsyncioTestCase):
+    @staticmethod
+    def _read_timeout() -> APITimeoutError:
+        request = httpx.Request("POST", "https://example.com/chat/completions")
+        error = APITimeoutError(request=request)
+        error.__cause__ = httpx.ReadTimeout("response stalled", request=request)
+        return error
+
+    async def test_read_timeout_retries_once_then_succeeds(self):
+        response = SimpleNamespace(
+            id="chatcmpl-test",
+            choices=[SimpleNamespace(message=SimpleNamespace(content='{"reply":"ok"}'))],
+            usage=None,
+        )
+        create = AsyncMock(side_effect=[self._read_timeout(), response])
+        openai_client = MagicMock()
+        openai_client.chat.completions.create = create
+
+        with (
+            patch("app.services.agent.model_client.settings.AGENT_API_KEY", "test-key"),
+            patch("app.services.agent.model_client.AsyncOpenAI", return_value=openai_client),
+            patch("app.services.agent.model_client.asyncio.sleep", new=AsyncMock()) as sleep,
+        ):
+            result = await AgentModelClient().complete("system", [{"role": "user", "content": "x"}])
+
+        self.assertEqual(result, '{"reply":"ok"}')
+        self.assertEqual(create.await_count, 2)
+        sleep.assert_awaited_once_with(2)
+
+    async def test_second_read_timeout_returns_specific_error(self):
+        create = AsyncMock(side_effect=[self._read_timeout(), self._read_timeout()])
+        openai_client = MagicMock()
+        openai_client.chat.completions.create = create
+
+        with (
+            patch("app.services.agent.model_client.settings.AGENT_API_KEY", "test-key"),
+            patch("app.services.agent.model_client.AsyncOpenAI", return_value=openai_client),
+            patch("app.services.agent.model_client.asyncio.sleep", new=AsyncMock()),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "Agent模型响应超时"):
+                await AgentModelClient().complete("system", [{"role": "user", "content": "x"}])
+
+        self.assertEqual(create.await_count, 2)
+
+    async def test_quota_error_is_not_retried(self):
+        request = httpx.Request("POST", "https://example.com/chat/completions")
+        body = {"error": {"code": "insufficient_quota"}}
+        response = httpx.Response(429, request=request, json=body)
+        create = AsyncMock(
+            side_effect=APIStatusError(
+                "quota exceeded",
+                response=response,
+                body=body,
+            )
+        )
+        openai_client = MagicMock()
+        openai_client.chat.completions.create = create
+
+        with (
+            patch("app.services.agent.model_client.settings.AGENT_API_KEY", "test-key"),
+            patch("app.services.agent.model_client.AsyncOpenAI", return_value=openai_client),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "余额、额度和限流"):
+                await AgentModelClient().complete("system", [{"role": "user", "content": "x"}])
+
+        self.assertEqual(create.await_count, 1)
 
 
 class SkillTests(unittest.TestCase):

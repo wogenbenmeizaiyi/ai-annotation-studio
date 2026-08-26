@@ -62,6 +62,7 @@ VAR_DEFS=(
     "AGENT_API_KEY|"
     "AGENT_MODEL|qwen3.7-plus"
     "AGENT_BASE_URL|https://dashscope.aliyuncs.com/compatible-mode/v1"
+    "AGENT_TIMEOUT_SECONDS|180"
     "QWEN_API_KEY|"
     "AUTH_ISSUER|ai-annotation-studio-auth"
     "AUTH_AUDIENCE|ai-annotation-studio"

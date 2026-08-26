@@ -38,7 +38,22 @@
             variant="tonal"
             density="comfortable"
           >
-            {{ autoAnalysis?.error_message || '大模型总结生成失败，仍可查看已有的指标分析。' }}
+            <div class="d-flex flex-wrap align-center justify-space-between ga-3">
+              <span>
+                {{ autoAnalysis?.error_message || '大模型总结生成失败，仍可查看已有的指标分析。' }}
+              </span>
+              <v-btn
+                v-if="canRetryAnalysis"
+                color="warning"
+                variant="tonal"
+                size="small"
+                prepend-icon="mdi-refresh"
+                :loading="isRetryingAnalysis"
+                @click="retryAnalysis"
+              >
+                重新生成报告
+              </v-btn>
+            </div>
           </v-alert>
 
           <section v-if="modelReply" class="model-analysis-reply">
@@ -218,6 +233,7 @@ import {
   createTrainAgentOptimizationProposal,
   getTrainAgentAnalysis,
   getTrainAgentAutoAnalysis,
+  retryTrainAgentAutoAnalysis,
   startTrainAgentProposal,
 } from '@/api/services'
 import MarkdownText from '@/components/common/MarkdownText.vue'
@@ -250,6 +266,7 @@ const emit = defineEmits<{
 
 const autoAnalysis = ref<TrainAgentAutoAnalysis | null>(null)
 const isLoading = ref(false)
+const isRetryingAnalysis = ref(false)
 const errorMessage = ref('')
 const optimizationProposal = ref<TrainAgentChatResponse | null>(null)
 const optimizationInstruction = ref('')
@@ -336,6 +353,9 @@ const analysis = computed<TrainAgentAnalysis | null>(() => autoAnalysis.value?.a
 
 const analysisStatus = computed(() => String(autoAnalysis.value?.status || '').toUpperCase())
 const isAnalysisPending = computed(() => ['PENDING', 'RUNNING'].includes(analysisStatus.value))
+const canRetryAnalysis = computed(
+  () => analysisStatus.value === 'FAILED' && typeof autoAnalysis.value?.train_task_id === 'number',
+)
 const modelReply = computed(() => autoAnalysis.value?.model_result?.reply || '')
 const optimizationChanges = computed(() => optimizationProposal.value?.changes || [])
 const optimizationWarnings = computed(() => optimizationProposal.value?.warnings || [])
@@ -501,6 +521,21 @@ const loadAnalysis = async () => {
   } finally {
     isLoading.value = false
     scheduleRefresh()
+  }
+}
+
+const retryAnalysis = async () => {
+  if (isRetryingAnalysis.value || isAnalysisPending.value) return
+  isRetryingAnalysis.value = true
+  errorMessage.value = ''
+  try {
+    autoAnalysis.value = await retryTrainAgentAutoAnalysis(props.taskId)
+    scheduleRefresh()
+  } catch (error) {
+    console.error('重新生成训练分析报告失败:', error)
+    errorMessage.value = getErrorMessage(error)
+  } finally {
+    isRetryingAnalysis.value = false
   }
 }
 

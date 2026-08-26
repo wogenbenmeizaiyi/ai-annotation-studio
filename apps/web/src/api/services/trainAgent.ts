@@ -30,14 +30,19 @@ export const getTrainAgentAutoAnalysis = async (
   return http.get<TrainAgentAutoAnalysis>(`/train/agent/analysis/${trainTaskId}/auto`)
 }
 
+export const retryTrainAgentAutoAnalysis = async (
+  trainTaskId: number,
+): Promise<TrainAgentAutoAnalysis> => {
+  return http.post<TrainAgentAutoAnalysis>(`/train/agent/analysis/${trainTaskId}/auto/retry`)
+}
+
 export const createTrainAgentOptimizationProposal = async (
   trainTaskId: number,
   instruction = '基于本次训练报告生成下一轮优化训练参数草案',
 ): Promise<TrainAgentChatResponse> => {
-  return http.post<TrainAgentChatResponse>(
-    `/train/agent/analysis/${trainTaskId}/proposal`,
-    { instruction },
-  )
+  return http.post<TrainAgentChatResponse>(`/train/agent/analysis/${trainTaskId}/proposal`, {
+    instruction,
+  })
 }
 
 export const confirmTrainAgentProposal = async (

@@ -98,6 +98,24 @@ def get_auto_analysis(train_task_id: int):
         return _response(message=f"读取自动质量分析失败: {exc}", code=500)
 
 
+@router.post("/analysis/{train_task_id}/auto/retry")
+def retry_auto_analysis(train_task_id: int, request: Request):
+    """重新生成一条失败的训练质量总结。"""
+    require_train_manager(train_task_id, get_request_auth(request))
+    try:
+        return _response(
+            auto_analysis_service.retry(train_task_id),
+            message="自动质量分析已重新进入生成队列",
+        )
+    except LookupError as exc:
+        return _response(message=str(exc), code=404)
+    except ValueError as exc:
+        return _response(message=str(exc), code=409)
+    except Exception as exc:
+        logger.exception("auto_analysis_retry_error error_type=%s", type(exc).__name__)
+        return _response(message="重新生成自动质量分析失败", code=500)
+
+
 @router.post("/analysis/{train_task_id}/proposal")
 async def create_optimization_proposal(
     train_task_id: int,

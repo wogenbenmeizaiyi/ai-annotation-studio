@@ -50,7 +50,7 @@ class Settings:
         "AGENT_BASE_URL",
         "https://dashscope.aliyuncs.com/compatible-mode/v1",
     )
-    AGENT_TIMEOUT_SECONDS: int = int(os.getenv("AGENT_TIMEOUT_SECONDS", "60"))
+    AGENT_TIMEOUT_SECONDS: int = int(os.getenv("AGENT_TIMEOUT_SECONDS", "180"))
     AGENT_MAX_OUTPUT_TOKENS: int = int(os.getenv("AGENT_MAX_OUTPUT_TOKENS", "2000"))
     AGENT_FORCE_IPV4: bool = os.getenv("AGENT_FORCE_IPV4", "true").lower() in (
         "1",
